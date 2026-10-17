@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BOY的日本tabelog美食地圖</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif; }
+    #map { height: 100%; width: 100%; z-index: 10; }
+    .custom-marker {
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 9999px; font-weight: 800; font-size: 11px; color: white;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.35); border: 2px solid white;
+      transition: transform 0.15s ease;
+    }
+    .custom-marker:hover { transform: scale(1.2); z-index: 1000 !important; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 h-screen flex flex-col overflow-hidden">
+
+  <!-- 頂部導覽列：步驟 1 選擇車站 -->
+  <header class="bg-slate-900 text-white px-4 py-3 shadow-md flex flex-wrap items-center justify-between gap-3 z-20">
+    <div class="flex items-center gap-2.5">
+      <span class="bg-amber-500 text-slate-950 font-black px-2.5 py-1 rounded text-sm tracking-wide">TABELOG</span>
+      <h1 class="font-bold text-base sm:text-lg tracking-tight">BOY的日本tabelog美食地圖</h1>
+    </div>
+
+    <!-- 車站選擇按鈕列 (東京、新宿、上野、澀谷) -->
+    <div class="flex items-center gap-1.5 overflow-x-auto py-0.5" id="station-buttons">
+      <span class="text-xs text-amber-400 font-bold mr-1 shrink-0">STEP 1 點選車站：</span>
+      <button onclick="selectStation('all')" data-station="all" class="station-btn bg-amber-500 text-slate-950 font-bold px-3.5 py-1.5 rounded-full text-xs shrink-0 transition">全部車站 (40)</button>
+      <button onclick="selectStation('tokyo')" data-station="tokyo" class="station-btn bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-1.5 rounded-full text-xs shrink-0 transition">📍 東京駅</button>
+      <button onclick="selectStation('shinjuku')" data-station="shinjuku" class="station-btn bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-1.5 rounded-full text-xs shrink-0 transition">📍 新宿駅</button>
+      <button onclick="selectStation('ueno')" data-station="ueno" class="station-btn bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-1.5 rounded-full text-xs shrink-0 transition">📍 上野駅</button>
+      <button onclick="selectStation('shibuya')" data-station="shibuya" class="station-btn bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-1.5 rounded-full text-xs shrink-0 transition">📍 渋谷駅</button>
+    </div>
+
+    <!-- 管理與擴充工具列 -->
+    <div class="flex items-center gap-2">
+      <button onclick="openAddModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 shadow transition">
+        <span>➕ 新增 / 解析 Tabelog</span>
+      </button>
+      <button onclick="exportJson()" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 px-2.5 py-1.5 rounded-lg text-xs font-medium transition" title="備份目前所有餐廳資料">
+        💾 匯出備份
+      </button>
+      <label class="cursor-pointer bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 px-2.5 py-1.5 rounded-lg text-xs font-medium transition">
+        <span>📂 匯入 JSON</span>
+        <input type="file" accept=".json" class="hidden" onchange="handleFileUpload(event)" />
+      </label>
+    </div>
+  </header>
+
+  <!-- 主畫面：左側篩選與餐廳清單 + 右側互動地圖 -->
+  <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
+
+    <!-- 左側控制面板與清單 -->
+    <aside class="w-full md:w-[420px] lg:w-[460px] bg-white border-r border-slate-200 flex flex-col h-1/2 md:h-full shrink-0 z-10">
+
+      <!-- STEP 2: 篩選條件區 -->
+      <div class="p-3.5 border-b border-slate-200 space-y-3 bg-slate-50">
+
+        <!-- 星等級距篩選 (3.0~3.9 vs 4.0~5.0) -->
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="text-xs font-bold text-slate-700">STEP 2 篩選 Tabelog 星等級距</label>
+            <div class="flex items-center gap-2">
+              <select id="sub-rating-filter" onchange="applyFilters()" class="bg-white border border-slate-300 rounded px-2 py-0.5 text-[11px] font-bold text-slate-700">
+                <option value="0">細分門檻：不限 (全部顯示)</option>
+                <option value="3.5">只看 3.50★ 以上 (百名店級)</option>
+                <option value="3.7">只看 3.70★ 以上 (高分名店)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <label id="box-tier3" class="flex items-center gap-2 p-2 rounded-lg border-2 border-blue-500 bg-blue-50/40 cursor-pointer transition">
+              <input type="checkbox" id="tier-3" checked onchange="applyFilters()" class="w-4 h-4 rounded text-blue-600 focus:ring-0" />
+              <div class="leading-tight">
+                <div class="text-xs font-bold text-slate-900">3.0 ～ 3.9 顆星</div>
+                <div class="text-[11px] text-slate-500" id="count-tier3">日常好店 &amp; 百名店</div>
+              </div>
+            </label>
+
+            <label id="box-tier4" class="flex items-center gap-2 p-2 rounded-lg border-2 border-amber-500 bg-amber-50/40 cursor-pointer transition">
+              <input type="checkbox" id="tier-4" checked onchange="applyFilters()" class="w-4 h-4 rounded text-amber-600 focus:ring-0" />
+              <div class="leading-tight">
+                <div class="text-xs font-bold text-amber-700">4.0 ～ 5.0 顆星</div>
+                <div class="text-[11px] text-slate-500" id="count-tier4">Tabelog 頂級神店</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- 價格帶篩選 (午餐/晚餐 + 自訂上下限) -->
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="text-xs font-bold text-slate-700">STEP 3 設定預算價格帶 (日圓)</label>
+            <button onclick="resetFilters()" class="text-[11px] text-blue-600 hover:underline font-semibold">重設所有條件</button>
+          </div>
+
+          <!-- 午餐 / 晚餐切換 -->
+          <div class="grid grid-cols-3 gap-1 p-1 bg-slate-200/80 rounded-lg mb-2 text-xs font-bold">
+            <button type="button" id="btn-any" onclick="setMealPeriod('any')" class="py-1 rounded bg-white text-slate-900 shadow-sm transition">🕒 不分時段</button>
+            <button type="button" id="btn-lunch" onclick="setMealPeriod('lunch')" class="py-1 rounded text-slate-600 hover:text-slate-900 transition">☀️ 午餐 (昼)</button>
+            <button type="button" id="btn-dinner" onclick="setMealPeriod('dinner')" class="py-1 rounded text-slate-600 hover:text-slate-900 transition">🌙 晚餐 (夜)</button>
+          </div>
+
+          <!-- 最低與最高預算下拉選單 -->
+          <div class="flex items-center gap-2">
+            <div class="flex-1">
+              <select id="min-price" onchange="applyFilters()" class="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-xs bg-white font-semibold">
+                <option value="0">最低：¥0 (不限)</option>
+                <option value="1000">最低：¥1,000 起</option>
+                <option value="2000">最低：¥2,000 起</option>
+                <option value="3000">最低：¥3,000 起</option>
+                <option value="5000">最低：¥5,000 起</option>
+                <option value="10000">最低：¥10,000 起</option>
+              </select>
+            </div>
+            <span class="text-slate-400 font-bold">～</span>
+            <div class="flex-1">
+              <select id="max-price" onchange="applyFilters()" class="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-xs bg-white font-semibold">
+                <option value="999999">最高：不限金額</option>
+                <option value="1000">最高：¥1,000 以內</option>
+                <option value="2000">最高：¥2,000 以內</option>
+                <option value="3000">最高：¥3,000 以內</option>
+                <option value="4000">最高：¥4,000 以內</option>
+                <option value="5000">最高：¥5,000 以內</option>
+                <option value="8000">最高：¥8,000 以內</option>
+                <option value="15000">最高：¥15,000 以內</option>
+                <option value="30000">最高：¥30,000 以內</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 料理關鍵字搜尋與結果統計 -->
+          <div class="mt-2.5 flex items-center justify-between gap-2 pt-2 border-t border-slate-200">
+            <input type="text" id="keyword-input" oninput="applyFilters()" placeholder="🔍 搜尋店名或料理 (例：拉麵、燒肉、壽司、炸豬排)..." class="flex-1 border border-slate-300 rounded-lg px-2.5 py-1 text-xs bg-white focus:outline-none focus:border-amber-500" />
+            <span id="result-count" class="text-xs font-black text-amber-700 bg-amber-100 px-2.5 py-1 rounded-md shrink-0">共 0 間</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 當前車站與篩選狀態提示條 -->
+      <div id="status-banner" class="bg-slate-800 text-slate-100 px-3.5 py-1.5 text-xs flex items-center justify-between">
+        <span id="status-text">目前顯示：全部車站</span>
+        <select id="sort-select" onchange="applyFilters()" class="bg-slate-700 text-white text-[11px] rounded px-1.5 py-0.5 border border-slate-600">
+          <option value="rating-desc">依星等：高 ➔ 低</option>
+          <option value="price-asc">依預算：低 ➔ 高</option>
+          <option value="price-desc">依預算：高 ➔ 低</option>
+        </select>
+      </div>
+
+      <!-- 餐廳結果清單 -->
+      <div id="restaurant-list" class="flex-1 overflow-y-auto p-2.5 space-y-2 bg-slate-100/60"></div>
+    </aside>
+
+    <!-- 右側地圖區 -->
+    <main class="flex-1 relative h-1/2 md:h-full">
+      <div id="map"></div>
+      <!-- 圖例 -->
+      <div class="absolute bottom-5 right-4 bg-white/95 backdrop-blur px-3.5 py-2.5 rounded-xl shadow-lg border border-slate-200 z-[400] text-xs space-y-1.5">
+        <div class="font-bold text-slate-700">Tabelog 星等圖釘圖例</div>
+        <div class="flex items-center gap-2">
+          <span class="w-3.5 h-3.5 rounded-full bg-amber-500 inline-block border border-white shadow"></span>
+          <span><strong>4.00 ～ 5.00 ★</strong> 頂級傳奇神店</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-3.5 h-3.5 rounded-full bg-rose-600 inline-block border border-white shadow"></span>
+          <span><strong>3.50 ～ 3.99 ★</strong> 百名店 / 排隊名店</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-3.5 h-3.5 rounded-full bg-blue-600 inline-block border border-white shadow"></span>
+          <span><strong>3.00 ～ 3.49 ★</strong> 車站周邊穩定好店</span>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- 彈出視窗：新增餐廳 & 貼上 Tabelog 原始碼自動解析 -->
+  <div id="add-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 max-h-[92vh] flex flex-col">
+      <div class="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
+        <h2 class="font-bold text-sm sm:text-base">➕ 新增餐廳至你的專屬資料庫</h2>
+        <button onclick="closeAddModal()" class="text-slate-400 hover:text-white text-lg font-bold">&times;</button>
+      </div>
+
+      <div class="p-5 overflow-y-auto space-y-4 text-xs">
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
+          <div class="font-bold text-amber-900 flex items-center justify-between">
+            <span>⚡ 方式 A：貼上 Tabelog 餐廳網頁原始碼（1 秒自動填入座標與星等）</span>
+          </div>
+          <p class="text-[11px] text-amber-800 leading-relaxed">
+            在 Chrome 打開任何一間 Tabelog 餐廳內頁 ➔ 按鍵盤 <kbd class="bg-white px-1.5 py-0.5 rounded border">Ctrl+U</kbd> 檢視原始碼 ➔ <kbd class="bg-white px-1.5 py-0.5 rounded border">Ctrl+A</kbd> 全選並複製 ➔ 貼到下方框框點擊解析：
+          </p>
+          <textarea id="raw-html-input" rows="3" placeholder="在此貼上 Tabelog 網頁原始碼 (Ctrl+U 的內容)..." class="w-full border border-amber-300 rounded-lg p-2 text-xs bg-white focus:outline-none"></textarea>
+          <button type="button" onclick="parsePastedHtml()" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-1.5 rounded-lg transition">
+            🔍 自動解析店名、星等、經緯度與午晚餐預算
+          </button>
+        </div>
+
+        <div class="space-y-2.5 pt-1">
+          <div class="font-bold text-slate-700">✍️ 方式 B：直接輸入或確認解析結果</div>
+          <div class="grid grid-cols-2 gap-2.5">
+            <div>
+              <label class="block text-slate-600 mb-1 font-medium">所屬車站</label>
+              <select id="f-station" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5">
+                <option value="tokyo">東京駅</option>
+                <option value="shinjuku">新宿駅</option>
+                <option value="ueno">上野駅</option>
+                <option value="shibuya">渋谷駅</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-slate-600 mb-1 font-medium">Tabelog 星等 (3.0~5.0)</label>
+              <input type="number" step="0.01" id="f-rating" placeholder="例: 3.76" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2.5">
+            <div>
+              <label class="block text-slate-600 mb-1 font-medium">餐廳名稱</label>
+              <input type="text" id="f-name" placeholder="例: 六厘舎 東京駅" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5" />
+            </div>
+            <div>
+              <label class="block text-slate-600 mb-1 font-medium">料理分類</label>
+              <input type="text" id="f-category" placeholder="例: 拉麵 / 沾麵" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2.5">
+            <div>
+              <label class="block text-slate-600 mb-1 font-medium">☀️ 午餐預算 (例: ￥1,000～￥1,999 或 -)</label>
+              <input type="text" id="f-lunch" placeholder="￥1,000～￥1,999" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5" />
+            </div>
+            <div>
+              <label class="block text-slate-600 mb-1 font-medium">🌙 晚餐預算 (例: ￥3,000～￥3,999)</label>
+              <input type="text" id="f-dinner" placeholder="￥3,000～￥3,999" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2.5">
+            <div>
+              <label class="block text-slate-600 mb-1 font-medium">緯度 (Latitude，可留空自動靠車站)</label>
+              <input type="number" step="0.00001" id="f-lat" placeholder="例: 35.6812" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5" />
+            </div>
+            <div>
+              <label class="block text-slate-600 mb-1 font-medium">經度 (Longitude，可留空自動靠車站)</label>
+              <input type="number" step="0.00001" id="f-lng" placeholder="例: 139.7671" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5" />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-slate-600 mb-1 font-medium">Tabelog 網址 &amp; 備註</label>
+            <input type="text" id="f-url" placeholder="https://tabelog.com/..." class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 mb-1.5" />
+            <input type="text" id="f-note" placeholder="備註 (例: 車站步行3分鐘、百名店)" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5" />
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-slate-50 px-5 py-3 border-t border-slate-200 flex items-center justify-between">
+        <button onclick="restoreDefaultData()" class="text-xs text-rose-600 hover:underline">還原預設 40 間資料庫</button>
+        <div class="flex gap-2">
+          <button onclick="closeAddModal()" class="px-4 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold">取消</button>
+          <button onclick="saveNewRestaurant()" class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold">✅ 儲存加入地圖</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STATIONS = {
+      tokyo:    { name: "東京駅", lat: 35.681236, lng: 139.767125, zoom: 15 },
+      shinjuku: { name: "新宿駅", lat: 35.689607, lng: 139.700571, zoom: 15 },
+      ueno:     { name: "上野駅", lat: 35.714167, lng: 139.777409, zoom: 15 },
+      shibuya:  { name: "渋谷駅", lat: 35.658034, lng: 139.701636, zoom: 15 }
+    };
+
+    const DEFAULT_RESTAURANTS = [
+      { id: "tk01", station: "tokyo", station_name: "東京駅", name: "六厘舎 (東京駅一番街)", category: "沾麵 / 拉麵", rating: 3.78, lunch_text: "￥1,000～￥1,999", lunch_min: 1000, lunch_max: 1999, dinner_text: "￥1,000～￥1,999", dinner_min: 1000, dinner_max: 1999, lat: 35.67985, lng: 139.76762, url: "https://tabelog.com/tokyo/A1302/A130201/13093047/", note: "東京車站地下街超人氣濃厚魚介豚骨沾麵，百名店" },
+      { id: "tk02", station: "tokyo", station_name: "東京駅", name: "日本橋 蕎ノ字", category: "天婦羅", rating: 4.16, lunch_text: "￥20,000～￥29,999", lunch_min: 20000, lunch_max: 29999, dinner_text: "￥20,000～￥29,999", dinner_min: 20000, dinner_max: 29999, lat: 35.68410, lng: 139.77820, url: "https://tabelog.com/tokyo/A1302/A130202/13200815/", note: "東京車站東側日本橋圈 4.0+ 傳奇江戶前天婦羅" },
+      { id: "tk03", station: "tokyo", station_name: "東京駅", name: "すきやばし次郎 本店", category: "江戶前壽司", rating: 4.08, lunch_text: "￥50,000～￥59,999", lunch_min: 50000, lunch_max: 59999, dinner_text: "￥50,000～￥59,999", dinner_min: 50000, dinner_max: 59999, lat: 35.67285, lng: 139.76382, url: "https://tabelog.com/tokyo/A1301/A130101/13002260/", note: "東京站/有樂町側殿堂級壽司名店" },
+      { id: "tk04", station: "tokyo", station_name: "東京駅", name: "根室花まる KITTE丸の内店", category: "迴轉壽司", rating: 3.63, lunch_text: "￥2,000～￥2,999", lunch_min: 2000, lunch_max: 2999, dinner_text: "￥3,000～￥3,999", dinner_min: 3000, dinner_max: 3999, lat: 35.67968, lng: 139.76485, url: "https://tabelog.com/tokyo/A1302/A130201/13153814/", note: "丸之內南口對面 KITTE 5樓，北海道直送高CP值迴轉壽司" },
+      { id: "tk05", station: "tokyo", station_name: "東京駅", name: "つじ半 (Tsujihan) 日本橋本店", category: "海鮮丼", rating: 3.76, lunch_text: "￥1,000～￥1,999", lunch_min: 1200, lunch_max: 1999, dinner_text: "￥1,000～￥1,999", dinner_min: 1200, dinner_max: 1999, lat: 35.68152, lng: 139.77125, url: "https://tabelog.com/tokyo/A1302/A130202/13146590/", note: "東京站八重洲北口步行4分，珠寶盒海鮮丼配鯛魚高湯茶泡飯" },
+      { id: "tk06", station: "tokyo", station_name: "東京駅", name: "ソラノイロ NIPPON (東京ラーメンストリート)", category: "拉麵", rating: 3.69, lunch_text: "～￥999", lunch_min: 900, lunch_max: 999, dinner_text: "￥1,000～￥1,999", dinner_min: 1000, dinner_max: 1999, lat: 35.68012, lng: 139.76780, url: "https://tabelog.com/tokyo/A1302/A130201/13183558/", note: "東京拉麵街百名店，招牌蔬菜拉麵與醬油拉麵" },
+      { id: "tk07", station: "tokyo", station_name: "東京駅", name: "とんかつ まい泉 グランスタ東京店", category: "炸豬排 / 便當", rating: 3.38, lunch_text: "￥1,000～￥1,999", lunch_min: 1000, lunch_max: 1999, dinner_text: "￥1,000～￥1,999", dinner_min: 1000, dinner_max: 1999, lat: 35.68140, lng: 139.76650, url: "https://tabelog.com/tokyo/A1302/A130201/13114628/", note: "東京車站改札內穩定好店，搭新幹線前買豬排三明治首選" },
+      { id: "tk08", station: "tokyo", station_name: "東京駅", name: "矢場とん 東京駅グランスタ八重洲店", category: "味噌炸豬排", rating: 3.45, lunch_text: "￥1,000～￥1,999", lunch_min: 1200, lunch_max: 1999, dinner_text: "￥2,000～￥2,999", dinner_min: 2000, dinner_max: 2999, lat: 35.68080, lng: 139.76850, url: "https://tabelog.com/tokyo/A1302/A130201/13019676/", note: "名古屋名物濃厚紅味噌炸豬排，八重洲地下街直結" },
+      { id: "tk09", station: "tokyo", station_name: "東京駅", name: "インデアンカレー 丸の内店", category: "咖哩飯", rating: 3.74, lunch_text: "～￥999", lunch_min: 800, lunch_max: 999, dinner_text: "～￥999", dinner_min: 800, dinner_max: 999, lat: 35.67812, lng: 139.76415, url: "https://tabelog.com/tokyo/A1302/A130201/13020386/", note: "丸之內 TOKIA 地下一樓，千元有找的百名店微辣甜口咖哩" },
+      { id: "tk10", station: "tokyo", station_name: "東京駅", name: "焼肉 矢澤 東京", category: "黑毛和牛燒肉", rating: 3.72, lunch_text: "￥3,000～￥3,999", lunch_min: 3000, lunch_max: 3999, dinner_text: "￥10,000～￥14,999", dinner_min: 10000, dinner_max: 14999, lat: 35.68285, lng: 139.77045, url: "https://tabelog.com/tokyo/A1302/A130201/13097409/", note: "八重洲北口步行3分，頂級A5黑毛和牛燒肉百名店" },
+
+      { id: "sj01", station: "shinjuku", station_name: "新宿駅", name: "風雲児 (Fuunji 新宿本店)", category: "雞白湯魚介沾麵", rating: 3.77, lunch_text: "～￥999", lunch_min: 900, lunch_max: 999, dinner_text: "￥1,000～￥1,999", dinner_min: 1000, dinner_max: 1200, lat: 35.68715, lng: 139.69688, url: "https://tabelog.com/tokyo/A1304/A130401/13044091/", note: "新宿南口步行5分，極濃雞白湯魚介沾麵百名店" },
+      { id: "sj02", station: "shinjuku", station_name: "新宿駅", name: "らぁ麺 はやし田 新宿本店", category: "醬油拉麵", rating: 3.73, lunch_text: "～￥999", lunch_min: 850, lunch_max: 999, dinner_text: "￥1,000～￥1,999", dinner_min: 1000, dinner_max: 1500, lat: 35.69055, lng: 139.70341, url: "https://tabelog.com/tokyo/A1304/A130401/13216395/", note: "新宿東口步行3分，鴨與大山雞清湯醬油拉麵名店" },
+      { id: "sj03", station: "shinjuku", station_name: "新宿駅", name: "新宿 割烹 中嶋", category: "割烹 / 沙丁魚料理", rating: 3.81, lunch_text: "￥1,000～￥1,999", lunch_min: 1100, lunch_max: 1999, dinner_text: "￥15,000～￥19,999", dinner_min: 15000, dinner_max: 19999, lat: 35.69012, lng: 139.70415, url: "https://tabelog.com/tokyo/A1304/A130401/13000956/", note: "米其林一星割烹，中午沙丁魚柳川鍋套餐只要一千多日圓！" },
+      { id: "sj04", station: "shinjuku", station_name: "新宿駅", name: "匠 達広 (Takumi Tatsuhiro)", category: "江戶前壽司", rating: 4.04, lunch_text: "￥15,000～￥19,999", lunch_min: 15000, lunch_max: 19999, dinner_text: "￥30,000～￥39,999", dinner_min: 30000, dinner_max: 39999, lat: 35.68810, lng: 139.70820, url: "https://tabelog.com/tokyo/A1304/A130402/13091668/", note: "新宿御苑側 4.0+ 壽司神店，壽司すし匠系譜名店" },
+      { id: "sj05", station: "shinjuku", station_name: "新宿駅", name: "うどん 慎 (Udon Shin)", category: "手打烏龍麵", rating: 3.74, lunch_text: "￥1,000～￥1,999", lunch_min: 1000, lunch_max: 1999, dinner_text: "￥1,000～￥1,999", dinner_min: 1000, dinner_max: 1999, lat: 35.68650, lng: 139.69750, url: "https://tabelog.com/tokyo/A1304/A130401/13125862/", note: "新宿南口現切現煮天婦羅烏龍麵百名店，建議抽整理券" },
+      { id: "sj06", station: "shinjuku", station_name: "新宿駅", name: "牛かつ もと村 新宿南口店", category: "炸牛排", rating: 3.46, lunch_text: "￥1,000～￥1,999", lunch_min: 1500, lunch_max: 1999, dinner_text: "￥2,000～￥2,999", dinner_min: 2000, dinner_max: 2999, lat: 35.68852, lng: 139.70195, url: "https://tabelog.com/tokyo/A1304/A130401/13181931/", note: "個人石板現煎半熟炸牛排配山藥泥麥飯，穩定好吃" },
+      { id: "sj07", station: "shinjuku", station_name: "新宿駅", name: "豚珍館 (Tonchinkan)", category: "炸豬排", rating: 3.71, lunch_text: "～￥999", lunch_min: 950, lunch_max: 999, dinner_text: "￥1,000～￥1,999", dinner_min: 1000, dinner_max: 1999, lat: 35.69120, lng: 139.69680, url: "https://tabelog.com/tokyo/A1304/A130401/13000809/", note: "新宿西口步行3分，上菜極快、白飯豬肉湯免費續的炸豬排百名店" },
+      { id: "sj08", station: "shinjuku", station_name: "新宿駅", name: "叙々苑 新宿小田急ハルク店", category: "燒肉", rating: 3.36, lunch_text: "￥3,000～￥3,999", lunch_min: 3000, lunch_max: 3999, dinner_text: "￥10,000～￥14,999", dinner_min: 10000, dinner_max: 14999, lat: 35.69210, lng: 139.69910, url: "https://tabelog.com/tokyo/A1304/A130401/13004192/", note: "午間燒肉套餐約¥3,000即可享受高品質服務與定番沙拉" },
+      { id: "sj09", station: "shinjuku", station_name: "新宿駅", name: "アカシア (Acacia) 新宿本店", category: "洋食 / 高麗菜捲", rating: 3.55, lunch_text: "￥1,000～￥1,999", lunch_min: 1000, lunch_max: 1999, dinner_text: "￥1,000～￥1,999", dinner_min: 1000, dinner_max: 1999, lat: 35.69240, lng: 139.70180, url: "https://tabelog.com/tokyo/A1304/A130401/13000912/", note: "新宿東口創立於1963年老字號洋食百名店，招牌奶油燉高麗菜捲" },
+      { id: "sj10", station: "shinjuku", station_name: "新宿駅", name: "金色不如帰 新宿御苑本店", category: "蛤蜊醬油拉麵", rating: 3.91, lunch_text: "￥1,000～￥1,999", lunch_min: 1200, lunch_max: 1999, dinner_text: "￥1,000～￥1,999", dinner_min: 1200, dinner_max: 1999, lat: 35.68840, lng: 139.71050, url: "https://tabelog.com/tokyo/A1304/A130402/13222172/", note: "逼近4.0星的米其林一星拉麵，黃金蛤蜊與牛肝菌松露湯頭" },
+
+      { id: "un01", station: "ueno", station_name: "上野駅", name: "とんかつ山家 (Yamabe) 御徒町店", category: "炸豬排", rating: 3.74, lunch_text: "～￥999", lunch_min: 800, lunch_max: 999, dinner_text: "～￥999", dinner_min: 800, dinner_max: 999, lat: 35.70820, lng: 139.77450, url: "https://tabelog.com/tokyo/A1311/A131101/13142429/", note: "上野阿美橫丁超強CP值炸豬排百名店，里肌豬排定食不用一千日圓！" },
+      { id: "un02", station: "ueno", station_name: "上野駅", name: "ぽん多 本家 (Ponta Honke)", category: "炸豬排 / 洋食", rating: 3.86, lunch_text: "￥4,000～￥4,999", lunch_min: 4000, lunch_max: 4999, dinner_text: "￥5,000～￥5,999", dinner_min: 5000, dinner_max: 5999, lat: 35.70850, lng: 139.77280, url: "https://tabelog.com/tokyo/A1311/A131101/13003587/", note: "明治38年創業日本炸豬排發源老舖，Tabelog 銅賞名店" },
+      { id: "un03", station: "ueno", station_name: "上野駅", name: "とん八亭 (Tonpachitei)", category: "炸豬排", rating: 4.02, lunch_text: "￥2,000～￥2,999", lunch_min: 2200, lunch_max: 2999, dinner_text: "￥3,000～￥3,999", dinner_min: 3000, dinner_max: 3999, lat: 35.70980, lng: 139.77310, url: "https://tabelog.com/tokyo/A1311/A131101/13003590/", note: "上野站南側 4.0+ 傳奇炸豬排神店，低溫慢炸極致柔嫩" },
+      { id: "un04", station: "ueno", station_name: "上野駅", name: "鴨to葱 上野御徒町本店", category: "鴨肉醬油拉麵", rating: 3.75, lunch_text: "￥1,000～￥1,999", lunch_min: 1000, lunch_max: 1999, dinner_text: "￥1,000～￥1,999", dinner_min: 1000, dinner_max: 1999, lat: 35.70910, lng: 139.77520, url: "https://tabelog.com/tokyo/A1311/A131101/13210394/", note: "只用鴨、蔥、水熬煮的純粹清湯拉麵，上野排隊百名店" },
+      { id: "un05", station: "ueno", station_name: "上野駅", name: "伊豆栄 梅川亭 (上野公園内)", category: "鰻魚飯", rating: 3.65, lunch_text: "￥3,000～￥3,999", lunch_min: 3000, lunch_max: 3999, dinner_text: "￥5,000～￥5,999", dinner_min: 5000, dinner_max: 5999, lat: 35.71580, lng: 139.77320, url: "https://tabelog.com/tokyo/A1311/A131101/13003542/", note: "上野公園內江戶時代創業老字號鰻魚飯，環境幽雅" },
+      { id: "un06", station: "ueno", station_name: "上野駅", name: "肉の大山 上野店", category: "炸肉餅 / 立食牛排", rating: 3.49, lunch_text: "～￥999", lunch_min: 500, lunch_max: 999, dinner_text: "￥2,000～￥2,999", dinner_min: 2000, dinner_max: 2999, lat: 35.71020, lng: 139.77460, url: "https://tabelog.com/tokyo/A1311/A131101/13016729/", note: "阿美橫丁肉舖直營，現炸和牛可樂餅與特製炸肉餅必吃" },
+      { id: "un07", station: "ueno", station_name: "上野駅", name: "大統領 本店", category: "居酒屋 / 串燒", rating: 3.48, lunch_text: "￥1,000～￥1,999", lunch_min: 1000, lunch_max: 1999, dinner_text: "￥2,000～￥2,999", dinner_min: 2000, dinner_max: 2999, lat: 35.71060, lng: 139.77490, url: "https://tabelog.com/tokyo/A1311/A131101/13016742/", note: "上野高架橋下最具代表性的昭和大眾酒場，馬肉燉煮與串燒" },
+      { id: "un08", station: "ueno", station_name: "上野駅", name: "うさぎや (Usagiya)", category: "銅鑼燒 / 和菓子", rating: 3.80, lunch_text: "～￥999", lunch_min: 250, lunch_max: 999, dinner_text: "-", dinner_min: null, dinner_max: null, lat: 35.70680, lng: 139.77210, url: "https://tabelog.com/tokyo/A1311/A131101/13003519/", note: "東京三大銅鑼燒之首，溫熱外皮配十勝紅豆餡（僅白天營業）" },
+      { id: "un09", station: "ueno", station_name: "上野駅", name: "みはし 上野本店", category: "餡蜜 / 日式甜點", rating: 3.76, lunch_text: "～￥999", lunch_min: 700, lunch_max: 999, dinner_text: "～￥999", dinner_min: 700, dinner_max: 999, lat: 35.71150, lng: 139.77380, url: "https://tabelog.com/tokyo/A1311/A131101/13003509/", note: "上野公園正對面甘味處百名店，招牌白玉奶油紅豆餡蜜" },
+      { id: "un10", station: "ueno", station_name: "上野駅", name: "生粋 (Namaiki) 末広町本店", category: "和牛燒肉", rating: 3.73, lunch_text: "-", lunch_min: null, lunch_max: null, dinner_text: "￥8,000～￥9,999", dinner_min: 8000, dinner_max: 9999, lat: 35.70380, lng: 139.77120, url: "https://tabelog.com/tokyo/A1311/A131101/13164482/", note: "上野廣小路/末廣町圈知名燒肉よろにく姊妹店，必點生牛肉握壽司" },
+
+      { id: "sb01", station: "shibuya", station_name: "渋谷駅", name: "挽肉と米 渋谷店", category: "炭火漢堡排", rating: 3.69, lunch_text: "￥1,000～￥1,999", lunch_min: 1600, lunch_max: 1999, dinner_text: "￥1,000～￥1,999", dinner_min: 1600, dinner_max: 1999, lat: 35.65952, lng: 139.69785, url: "https://tabelog.com/tokyo/A1303/A130301/13257261/", note: "道玄坂上人氣名店，現烤三顆炭火和牛漢堡排配羽釜白飯" },
+      { id: "sb02", station: "shibuya", station_name: "渋谷駅", name: "とんかつ 檍 (Aoki) 渋谷店", category: "炸豬排", rating: 3.57, lunch_text: "￥1,000～￥1,999", lunch_min: 1300, lunch_max: 1999, dinner_text: "￥2,000～￥2,999", dinner_min: 2000, dinner_max: 2999, lat: 35.65842, lng: 139.70452, url: "https://tabelog.com/tokyo/A1303/A130301/13275810/", note: "澀谷東口步行4分，林SPF豚厚切炸豬排配多款喜馬拉雅岩鹽" },
+      { id: "sb03", station: "shibuya", station_name: "渋谷駅", name: "くろ﨑 (Kurosaki)", category: "江戶前壽司", rating: 4.12, lunch_text: "-", lunch_min: null, lunch_max: null, dinner_text: "￥40,000～￥49,999", dinner_min: 40000, dinner_max: 49999, lat: 35.66120, lng: 139.70680, url: "https://tabelog.com/tokyo/A1303/A130301/13179724/", note: "澀谷/表參道圈 4.0+ 壽司傳奇名店，Tabelog 銀賞常客" },
+      { id: "sb04", station: "shibuya", station_name: "渋谷駅", name: "中華ソバ 櫻坂", category: "魚介拉麵 / 沾麵", rating: 3.74, lunch_text: "～￥999", lunch_min: 900, lunch_max: 999, dinner_text: "￥1,000～￥1,999", dinner_min: 1000, dinner_max: 1500, lat: 35.65580, lng: 139.70240, url: "https://tabelog.com/tokyo/A1303/A130301/13025517/", note: "澀谷櫻丘町拉麵百名店，溫潤醇厚的柴魚雞湯中華拉麵" },
+      { id: "sb05", station: "shibuya", station_name: "渋谷駅", name: "はやし (Hayashi)", category: "豚骨魚介拉麵", rating: 3.78, lunch_text: "～￥999", lunch_min: 900, lunch_max: 999, dinner_text: "-", dinner_min: null, dinner_max: null, lat: 35.65790, lng: 139.69680, url: "https://tabelog.com/tokyo/A1303/A130301/13003367/", note: "澀谷道玄坂拉麵百名店王者，僅中午營業(11:30-15:30)" },
+      { id: "sb06", station: "shibuya", station_name: "渋谷駅", name: "瑞兆 (Zuicho)", category: "蓋飯 / 炸豬排丼", rating: 3.67, lunch_text: "￥1,000～￥1,999", lunch_min: 1000, lunch_max: 1500, dinner_text: "￥1,000～￥1,999", dinner_min: 1000, dinner_max: 1500, lat: 35.66240, lng: 139.69480, url: "https://tabelog.com/tokyo/A1303/A130301/13012649/", note: "澀谷宇田川町超高人氣嫩滑半熟蛋上蓋酥脆炸豬排丼" },
+      { id: "sb07", station: "shibuya", station_name: "渋谷駅", name: "ゆうじ (Yuji)", category: "內臟燒肉 (ホルモン)", rating: 3.79, lunch_text: "-", lunch_min: null, lunch_max: null, dinner_text: "￥6,000～￥7,999", dinner_min: 6000, dinner_max: 7999, lat: 35.66210, lng: 139.69620, url: "https://tabelog.com/tokyo/A1303/A130301/13001794/", note: "東京內臟燒肉最高峰之一，燒肉百名店常客" },
+      { id: "sb08", station: "shibuya", station_name: "渋谷駅", name: "ムルギー (Murugi)", category: "印度風熟成咖哩", rating: 3.68, lunch_text: "￥1,000～￥1,999", lunch_min: 1100, lunch_max: 1500, dinner_text: "-", dinner_min: null, dinner_max: null, lat: 35.65820, lng: 139.69610, url: "https://tabelog.com/tokyo/A1303/A130301/13001737/", note: "昭和26年創業道玄坂咖哩百名店，山形白飯造型獨特" },
+      { id: "sb09", station: "shibuya", station_name: "渋谷駅", name: "極味や 渋谷パルコ店", category: "鐵板漢堡排", rating: 3.47, lunch_text: "￥1,000～￥1,999", lunch_min: 1300, lunch_max: 1999, dinner_text: "￥2,000～￥2,999", dinner_min: 2000, dinner_max: 2999, lat: 35.66205, lng: 139.69875, url: "https://tabelog.com/tokyo/A1303/A130301/13241010/", note: "澀谷 PARCO 地下一樓，福岡超人氣自己用鐵板現煎伊萬里牛漢堡排" },
+      { id: "sb10", station: "shibuya", station_name: "渋谷駅", name: "回し寿司 活 美登利 西武渋谷店", category: "迴轉壽司", rating: 3.45, lunch_text: "￥1,000～￥1,999", lunch_min: 1500, lunch_max: 1999, dinner_text: "￥2,000～￥2,999", dinner_min: 2000, dinner_max: 2999, lat: 35.66060, lng: 139.70080, url: "https://tabelog.com/tokyo/A1303/A130301/13004628/", note: "澀谷車站正對面西武百貨8樓，平價大份量高人氣迴轉壽司" }
+    ];
+
+    const STORAGE_KEY = "tabelog_custom_restaurants_v2";
+    let restaurantsData = [];
+    let currentStation = "all";
+    let currentMealPeriod = "any";
+    let map, markersLayer, stationCircleLayer;
+    let markerMap = {};
+
+    function loadStoredData() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            restaurantsData = parsed;
+            return;
+          }
+        }
+      } catch (e) { console.warn(e); }
+      restaurantsData = JSON.parse(JSON.stringify(DEFAULT_RESTAURANTS));
+    }
+
+    function saveToStorage() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(restaurantsData));
+      } catch (e) { console.warn(e); }
+      updateStationCounts();
+    }
+
+    function updateStationCounts() {
+      document.querySelectorAll(".station-btn").forEach(btn => {
+        const st = btn.dataset.station;
+        if (st === "all") {
+          btn.textContent = `全部車站 (${restaurantsData.length})`;
+        } else if (STATIONS[st]) {
+          const cnt = restaurantsData.filter(r => r.station === st).length;
+          btn.textContent = `📍 ${STATIONS[st].name} (${cnt})`;
+        }
+      });
+    }
+
+    function parsePriceString(priceText) {
+      if (!priceText) return [null, null];
+      const cleaned = priceText.trim();
+      if (cleaned === "-" || cleaned === "－" || cleaned === "") return [null, null];
+      const matches = cleaned.match(/[0-9,]+/g);
+      if (!matches) return [null, null];
+      const nums = matches.map(n => parseInt(n.replace(/,/g, ""), 10)).filter(n => !isNaN(n));
+      if (nums.length >= 2) return [nums[0], nums[1]];
+      if (nums.length === 1) {
+        if (cleaned.startsWith("～") || cleaned.startsWith("~")) return [0, nums[0]];
+        if (cleaned.endsWith("～") || cleaned.endsWith("~")) return [nums[0], 999999];
+        return [nums[0], nums[0]];
+      }
+      return [null, null];
+    }
+
+    function initMap() {
+      loadStoredData();
+      updateStationCounts();
+
+      map = L.map("map").setView([35.689, 139.738], 12);
+      L.tileLayer("https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=zh-TW", {
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+
+      markersLayer = L.layerGroup().addTo(map);
+      stationCircleLayer = L.layerGroup().addTo(map);
+
+      drawStationCircles();
+      applyFilters();
+    }
+
+    function drawStationCircles() {
+      stationCircleLayer.clearLayers();
+      const keys = currentStation === "all" ? Object.keys(STATIONS) : [currentStation];
+      keys.forEach(k => {
+        const st = STATIONS[k];
+        if (!st) return;
+        L.circle([st.lat, st.lng], {
+          radius: 550, color: "#2563eb", weight: 1.5, dashArray: "5, 5",
+          fillColor: "#3b82f6", fillOpacity: 0.06
+        }).bindTooltip(`${st.name} 周邊步行圈`, { sticky: true }).addTo(stationCircleLayer);
+      });
+    }
+
+    function selectStation(stationKey) {
+      currentStation = stationKey;
+      document.querySelectorAll(".station-btn").forEach(btn => {
+        if (btn.dataset.station === stationKey) {
+          btn.className = "station-btn bg-amber-500 text-slate-950 font-bold px-3.5 py-1.5 rounded-full text-xs shrink-0 transition shadow";
+        } else {
+          btn.className = "station-btn bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-1.5 rounded-full text-xs shrink-0 transition";
+        }
+      });
+
+      if (stationKey === "all") {
+        map.flyTo([35.689, 139.738], 12, { duration: 0.7 });
+      } else if (STATIONS[stationKey]) {
+        const st = STATIONS[stationKey];
+        map.flyTo([st.lat, st.lng], st.zoom, { duration: 0.7 });
+      }
+      drawStationCircles();
+      applyFilters();
+    }
+
+    function setMealPeriod(period) {
+      currentMealPeriod = period;
+      ["any", "lunch", "dinner"].forEach(p => {
+        const btn = document.getElementById("btn-" + p);
+        if (p === period) {
+          btn.className = "py-1 rounded bg-slate-900 text-white shadow-sm transition";
+        } else {
+          btn.className = "py-1 rounded text-slate-600 hover:text-slate-900 transition";
+        }
+      });
+      applyFilters();
+    }
+
+    function resetFilters() {
+      document.getElementById("tier-3").checked = true;
+      document.getElementById("tier-4").checked = true;
+      document.getElementById("sub-rating-filter").value = "0";
+      document.getElementById("min-price").value = "0";
+      document.getElementById("max-price").value = "999999";
+      document.getElementById("keyword-input").value = "";
+      setMealPeriod("any");
+    }
+
+    function getMarkerColor(rating) {
+      if (rating >= 4.0) return "#f59e0b";
+      if (rating >= 3.5) return "#e11d48";
+      return "#2563eb";
+    }
+
+    function applyFilters() {
+      const includeTier3 = document.getElementById("tier-3").checked;
+      const includeTier4 = document.getElementById("tier-4").checked;
+      const minRatingFloor = parseFloat(document.getElementById("sub-rating-filter").value || "0");
+      const userMinPrice = parseInt(document.getElementById("min-price").value, 10);
+      const userMaxPrice = parseInt(document.getElementById("max-price").value, 10);
+      const keyword = (document.getElementById("keyword-input").value || "").trim().toLowerCase();
+      const sortMode = document.getElementById("sort-select").value;
+
+      const stationPool = restaurantsData.filter(r => currentStation === "all" || r.station === currentStation);
+      const t3Count = stationPool.filter(r => r.rating >= 3.0 && r.rating < 4.0).length;
+      const t4Count = stationPool.filter(r => r.rating >= 4.0).length;
+      document.getElementById("count-tier3").textContent = `該站共 ${t3Count} 間 (日常/百名店)`;
+      document.getElementById("count-tier4").textContent = `該站共 ${t4Count} 間 (傳奇神店)`;
+
+      let filtered = stationPool.filter(item => {
+        const isTier3 = item.rating >= 3.0 && item.rating < 4.0;
+        const isTier4 = item.rating >= 4.0 && item.rating <= 5.0;
+        if (isTier3 && !includeTier3) return false;
+        if (isTier4 && !includeTier4) return false;
+        if (item.rating < minRatingFloor) return false;
+
+        if (keyword) {
+          const hay = `${item.name} ${item.category} ${item.note || ""} ${item.station_name}`.toLowerCase();
+          if (!hay.includes(keyword)) return false;
+        }
+
+        const matchPrice = (minVal, maxVal) => {
+          if (minVal === null || maxVal === null) return false;
+          return minVal <= userMaxPrice && maxVal >= userMinPrice;
+        };
+
+        if (currentMealPeriod === "lunch") {
+          return matchPrice(item.lunch_min, item.lunch_max);
+        } else if (currentMealPeriod === "dinner") {
+          return matchPrice(item.dinner_min, item.dinner_max);
+        } else {
+          if (userMinPrice === 0 && userMaxPrice >= 999999) return true;
+          return matchPrice(item.lunch_min, item.lunch_max) || matchPrice(item.dinner_min, item.dinner_max);
+        }
+      });
+
+      filtered.sort((a, b) => {
+        if (sortMode === "rating-desc") return b.rating - a.rating;
+        const getRepPrice = r => {
+          if (currentMealPeriod === "lunch") return r.lunch_min ?? 999999;
+          if (currentMealPeriod === "dinner") return r.dinner_min ?? 999999;
+          return Math.min(r.lunch_min ?? 999999, r.dinner_min ?? 999999);
+        };
+        if (sortMode === "price-asc") return getRepPrice(a) - getRepPrice(b);
+        if (sortMode === "price-desc") return getRepPrice(b) - getRepPrice(a);
+        return 0;
+      });
+
+      const stLabel = currentStation === "all" ? "全部車站" : STATIONS[currentStation].name;
+      document.getElementById("status-text").textContent = `目前顯示：${stLabel}（篩選後 ${filtered.length} / ${stationPool.length} 間）`;
+      document.getElementById("result-count").textContent = `符合 ${filtered.length} 間`;
+
+      renderMapMarkers(filtered);
+      renderSidebarList(filtered);
+    }
+
+    function renderMapMarkers(list) {
+      markersLayer.clearLayers();
+      markerMap = {};
+
+      list.forEach(item => {
+        const bgColor = getMarkerColor(item.rating);
+        const icon = L.divIcon({
+          className: "",
+          html: `<div class="custom-marker" style="background:${bgColor}; width:40px; height:24px;">${item.rating.toFixed(2)}</div>`,
+          iconSize: [40, 24], iconAnchor: [20, 12], popupAnchor: [0, -14]
+        });
+
+        const gmapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.name + " " + item.station_name)}`;
+        const popupHtml = `
+          <div class="p-1 min-w-[230px]">
+            <div class="flex items-center justify-between gap-2 mb-1">
+              <span class="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700">${item.station_name}・${item.category}</span>
+              <span class="text-xs font-black text-amber-600">★ ${item.rating.toFixed(2)}</span>
+            </div>
+            <h3 class="font-bold text-sm text-slate-900 mb-1">${item.name}</h3>
+            <p class="text-xs text-slate-600 mb-2">${item.note || ""}</p>
+            <div class="text-xs bg-slate-50 p-2 rounded border border-slate-200 space-y-1 mb-2.5">
+              <div>☀️ 午餐：<strong class="text-slate-800">${item.lunch_text || "-"}</strong></div>
+              <div>🌙 晚餐：<strong class="text-slate-800">${item.dinner_text || "-"}</strong></div>
+            </div>
+            <div class="grid grid-cols-2 gap-1.5 text-center text-xs font-bold">
+              <a href="${item.url}" target="_blank" rel="noopener" class="bg-amber-500 hover:bg-amber-600 text-white py-1.5 px-2 rounded">Tabelog 原頁</a>
+              <a href="${gmapUrl}" target="_blank" rel="noopener" class="bg-blue-600 hover:bg-blue-700 text-white py-1.5 px-2 rounded">Google 導航</a>
+            </div>
+          </div>
+        `;
+        const m = L.marker([item.lat, item.lng], { icon }).bindPopup(popupHtml);
+        m.addTo(markersLayer);
+        markerMap[item.id] = m;
+      });
+    }
+
+    function renderSidebarList(list) {
+      const container = document.getElementById("restaurant-list");
+      if (list.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-12 px-4 bg-white rounded-xl border border-slate-200">
+            <div class="text-3xl mb-2">🍽️</div>
+            <div class="text-sm font-bold text-slate-700">此篩選條件下沒有符合的餐廳</div>
+            <p class="text-xs text-slate-500 mt-1">請點選「重設所有條件」或放寬預算上限。</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = list.map(item => {
+        const badgeColor = item.rating >= 4.0
+          ? "bg-amber-500 text-white"
+          : (item.rating >= 3.5 ? "bg-rose-600 text-white" : "bg-blue-600 text-white");
+        const tierTag = item.rating >= 4.0 ? "4.0~5.0★ 頂級神店" : (item.rating >= 3.5 ? "3.0~3.9★ (百名店級)" : "3.0~3.9★ (日常好店)");
+
+        return `
+          <div onclick="focusRestaurant('${item.id}')" class="p-3 rounded-xl border border-slate-200 hover:border-amber-500 bg-white cursor-pointer transition shadow-sm">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <div class="flex items-center gap-1.5 mb-1">
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-800 text-amber-400">${item.station_name}</span>
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600">${item.category}</span>
+                </div>
+                <h3 class="font-bold text-sm text-slate-900">${item.name}</h3>
+              </div>
+              <div class="text-right shrink-0">
+                <span class="inline-block text-xs font-black px-2 py-0.5 rounded-md ${badgeColor}">★ ${item.rating.toFixed(2)}</span>
+                <div class="text-[10px] text-slate-400 mt-0.5">${tierTag}</div>
+              </div>
+            </div>
+            <p class="text-xs text-slate-500 mt-1">${item.note || ""}</p>
+            <div class="mt-2 pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-1 text-[11px]">
+              <div class="space-x-2">
+                <span class="text-slate-700">☀️ 午：<strong>${item.lunch_text || "-"}</strong></span>
+                <span class="text-slate-700">🌙 晚：<strong>${item.dinner_text || "-"}</strong></span>
+              </div>
+              <div class="flex items-center gap-2">
+                <a href="${item.url}" target="_blank" onclick="event.stopPropagation()" class="text-amber-600 font-bold hover:underline">Tabelog ↗</a>
+                <button onclick="deleteRestaurant(event, '${item.id}')" class="text-slate-300 hover:text-rose-500" title="刪除此餐廳">🗑️</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function focusRestaurant(id) {
+      const item = restaurantsData.find(r => r.id === id);
+      const marker = markerMap[id];
+      if (item && marker) {
+        map.flyTo([item.lat, item.lng], 16, { duration: 0.6 });
+        setTimeout(() => marker.openPopup(), 650);
+      }
+    }
+
+    function deleteRestaurant(e, id) {
+      e.stopPropagation();
+      if (!confirm("確定要從你的資料庫移除這間餐廳嗎？")) return;
+      restaurantsData = restaurantsData.filter(r => r.id !== id);
+      saveToStorage();
+      applyFilters();
+    }
+
+    function openAddModal() {
+      if (currentStation !== "all") {
+        document.getElementById("f-station").value = currentStation;
+      }
+      document.getElementById("add-modal").classList.remove("hidden");
+      document.getElementById("add-modal").classList.add("flex");
+    }
+
+    function closeAddModal() {
+      document.getElementById("add-modal").classList.add("hidden");
+      document.getElementById("add-modal").classList.remove("flex");
+    }
+
+    function parsePastedHtml() {
+      const raw = document.getElementById("raw-html-input").value;
+      if (!raw || raw.length < 50) {
+        alert("請先貼上 Tabelog 網頁的原始碼內容！");
+        return;
+      }
+
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(raw, "text/html");
+
+      let foundLd = null;
+      doc.querySelectorAll('script[type="application/ld+json"]').forEach(sc => {
+        try {
+          const data = JSON.parse(sc.textContent);
+          const arr = Array.isArray(data) ? data : [data];
+          arr.forEach(obj => {
+            if (obj && obj["@type"] === "Restaurant") foundLd = obj;
+          });
+        } catch (err) {}
+      });
+
+      if (foundLd) {
+        document.getElementById("f-name").value = foundLd.name || "";
+        if (foundLd.aggregateRating && foundLd.aggregateRating.ratingValue) {
+          document.getElementById("f-rating").value = foundLd.aggregateRating.ratingValue;
+        }
+        if (foundLd.geo) {
+          document.getElementById("f-lat").value = foundLd.geo.latitude || "";
+          document.getElementById("f-lng").value = foundLd.geo.longitude || "";
+        }
+        if (foundLd.servesCuisine) {
+          document.getElementById("f-category").value = Array.isArray(foundLd.servesCuisine) ? foundLd.servesCuisine.join(" / ") : foundLd.servesCuisine;
+        }
+        if (foundLd["@id"] || foundLd.url) {
+          document.getElementById("f-url").value = foundLd.url || foundLd["@id"];
+        }
+      }
+
+      const dinnerEl = doc.querySelector(".rdheader-budget__icon--dinner .rdheader-budget__price-target");
+      const lunchEl = doc.querySelector(".rdheader-budget__icon--lunch .rdheader-budget__price-target");
+      if (dinnerEl) document.getElementById("f-dinner").value = dinnerEl.textContent.trim();
+      if (lunchEl) document.getElementById("f-lunch").value = lunchEl.textContent.trim();
+
+      if (foundLd) {
+        alert("🎉 解析成功！已自動填入店名、星等、經緯度與午晚餐價格，請確認所屬車站後點選「儲存加入地圖」。");
+      } else {
+        alert("找不到標準 JSON-LD 結構，請確認貼上的是 Tabelog 單一餐廳內頁的完整原始碼 (Ctrl+U)。");
+      }
+    }
+
+    function saveNewRestaurant() {
+      const stKey = document.getElementById("f-station").value;
+      const stObj = STATIONS[stKey];
+      const name = document.getElementById("f-name").value.trim();
+      const rating = parseFloat(document.getElementById("f-rating").value);
+      const category = document.getElementById("f-category").value.trim() || "日本料理";
+      const lunchText = document.getElementById("f-lunch").value.trim() || "-";
+      const dinnerText = document.getElementById("f-dinner").value.trim() || "-";
+      let lat = parseFloat(document.getElementById("f-lat").value);
+      let lng = parseFloat(document.getElementById("f-lng").value);
+      const url = document.getElementById("f-url").value.trim() || "https://tabelog.com/";
+      const note = document.getElementById("f-note").value.trim() || "自訂新增名店";
+
+      if (!name || isNaN(rating)) {
+        alert("請至少填寫「餐廳名稱」與「Tabelog 星等」！");
+        return;
+      }
+
+      if (isNaN(lat) || isNaN(lng)) {
+        lat = stObj.lat + (Math.random() - 0.5) * 0.004;
+        lng = stObj.lng + (Math.random() - 0.5) * 0.004;
+      }
+
+      const [lMin, lMax] = parsePriceString(lunchText);
+      const [dMin, dMax] = parsePriceString(dinnerText);
+
+      const newEntry = {
+        id: "custom_" + Date.now(),
+        station: stKey,
+        station_name: stObj.name,
+        name, category, rating,
+        lunch_text: lunchText, lunch_min: lMin, lunch_max: lMax,
+        dinner_text: dinnerText, dinner_min: dMin, dinner_max: dMax,
+        lat, lng, url, note
+      };
+
+      restaurantsData.unshift(newEntry);
+      saveToStorage();
+      closeAddModal();
+      selectStation(stKey);
+      focusRestaurant(newEntry.id);
+    }
+
+    function restoreDefaultData() {
+      if (!confirm("確定要還原為預設的 40 間東京/新宿/上野/澀谷資料庫嗎？")) return;
+      localStorage.removeItem(STORAGE_KEY);
+      loadStoredData();
+      saveToStorage();
+      closeAddModal();
+      applyFilters();
+    }
+
+    function exportJson() {
+      const blob = new Blob([JSON.stringify(restaurantsData, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "my_tabelog_restaurants.json";
+      a.click();
+    }
+
+    function handleFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const imported = JSON.parse(e.target.result);
+          if (Array.isArray(imported) && imported.length > 0) {
+            restaurantsData = imported;
+            saveToStorage();
+            selectStation("all");
+            alert(`成功匯入 ${imported.length} 筆餐廳資料並已自動存檔！`);
+          }
+        } catch (err) {
+          alert("JSON 檔案格式錯誤：" + err.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    window.addEventListener("DOMContentLoaded", initMap);
+  </script>
+</body>
+</html>
