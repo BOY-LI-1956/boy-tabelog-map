@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html lang="zh-TW"><head>
+<html lang="zh-TW">
+<head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BOY的日本tabelog美食地圖</title>
@@ -9,6 +10,7 @@
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif; }
     #map { height: 100%; width: 100%; z-index: 10; }
+    .leaflet-popup-content a.popup-btn { color: #ffffff !important; text-decoration: none !important; }
     .custom-marker {
       display: flex; align-items: center; justify-content: center;
       border-radius: 9999px; font-weight: 800; font-size: 11px; color: white;
@@ -24,7 +26,7 @@
 </head>
 <body class="bg-slate-50 text-slate-800 h-screen flex flex-col overflow-hidden">
 
-  <!-- 頂部導覽列：z-50 確保選單在最上層不被覆蓋 -->
+  <!-- 頂部導覽列 -->
   <header class="bg-slate-900 text-white px-3 sm:px-4 py-2.5 shadow-md flex items-center justify-between gap-2 relative z-50 shrink-0">
     <div class="flex items-center gap-2">
       <span class="bg-amber-500 text-slate-950 font-black px-2 py-0.5 rounded text-xs tracking-wide">TABELOG</span>
@@ -39,7 +41,7 @@
         </svg>
       </button>
 
-      <!-- 下拉選單：最高層級 z-[100] -->
+      <!-- 下拉選單 -->
       <div id="dropdown-menu" class="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 z-[100] text-slate-800 text-xs font-semibold hidden">
         <button onclick="openAddModal(); toggleMenu();" class="w-full text-left px-4 py-2.5 hover:bg-slate-100 flex items-center gap-2 text-emerald-700 font-bold border-b border-slate-100">
           <span>➕ 新增 / 解析 Tabelog</span>
@@ -53,16 +55,22 @@
         </button>
         <div class="border-t border-slate-100 my-1"></div>
         <button onclick="restoreDefaultData(); toggleMenu();" class="w-full text-left px-4 py-2 hover:bg-rose-50 text-rose-600 font-medium">
-          <span>🔄 還原預設資料庫</span>
+          <span>🔄 還原預設資料庫 (250間)</span>
         </button>
       </div>
     </div>
   </header>
 
-  <!-- 車站橫向滑動列：z-30 低於 Header 避免擋住下拉選單 -->
+  <!-- 第一排：車站橫向滑動列 -->
   <div class="bg-slate-900 border-t border-slate-800 px-3 py-1.5 flex items-center gap-1.5 overflow-x-auto shrink-0 relative z-30" id="station-buttons-bar">
     <span class="text-xs text-amber-400 font-bold shrink-0 mr-1">選擇車站：</span>
     <div class="flex items-center gap-1.5" id="station-buttons"></div>
+  </div>
+
+  <!-- 第二排：料理種類橫向滑動列 -->
+  <div class="bg-slate-800 border-t border-slate-700 px-3 py-1.5 flex items-center gap-1.5 overflow-x-auto shrink-0 relative z-30" id="category-buttons-bar">
+    <span class="text-xs text-emerald-400 font-bold shrink-0 mr-1">選擇料理：</span>
+    <div class="flex items-center gap-1.5" id="category-buttons"></div>
   </div>
 
   <!-- 主畫面 -->
@@ -85,18 +93,18 @@
 
           <div class="grid grid-cols-2 gap-2">
             <label id="box-tier3" class="flex items-center gap-2 p-2 rounded-lg border-2 border-blue-500 bg-blue-50/40 cursor-pointer transition">
-              <input type="checkbox" id="tier-3" checked="" onchange="applyFilters()" class="w-4 h-4 rounded text-blue-600 focus:ring-0">
+              <input type="checkbox" id="tier-3" checked onchange="applyFilters()" class="w-4 h-4 rounded text-blue-600 focus:ring-0">
               <div class="leading-tight">
                 <div class="text-xs font-bold text-slate-900">3.0 ～ 3.9 顆星</div>
-                <div class="text-[11px] text-slate-500" id="count-tier3">該站共 11 間 (日常/百名店)</div>
+                <div class="text-[11px] text-slate-500" id="count-tier3">計算中...</div>
               </div>
             </label>
 
             <label id="box-tier4" class="flex items-center gap-2 p-2 rounded-lg border-2 border-amber-500 bg-amber-50/40 cursor-pointer transition">
-              <input type="checkbox" id="tier-4" checked="" onchange="applyFilters()" class="w-4 h-4 rounded text-amber-600 focus:ring-0">
+              <input type="checkbox" id="tier-4" checked onchange="applyFilters()" class="w-4 h-4 rounded text-amber-600 focus:ring-0">
               <div class="leading-tight">
                 <div class="text-xs font-bold text-amber-700">4.0 ～ 5.0 顆星</div>
-                <div class="text-[11px] text-slate-500" id="count-tier4">該站共 1 間 (傳奇神店)</div>
+                <div class="text-[11px] text-slate-500" id="count-tier4">計算中...</div>
               </div>
             </label>
           </div>
@@ -106,7 +114,7 @@
         <div>
           <div class="flex items-center justify-between mb-1">
             <label class="text-xs font-bold text-slate-700">預算價格帶 (日圓)</label>
-            <button onclick="resetFilters()" class="text-[11px] text-blue-600 hover:underline font-semibold">重設條件</button>
+            <button onclick="resetFilters()" class="text-[11px] text-blue-600 hover:underline font-semibold">重設所有條件</button>
           </div>
 
           <div class="grid grid-cols-3 gap-1 p-1 bg-slate-200/80 rounded-lg mb-1.5 text-xs font-bold">
@@ -137,15 +145,15 @@
           </div>
 
           <div class="mt-2 flex items-center justify-between gap-2 pt-1.5 border-t border-slate-200">
-            <input type="text" id="keyword-input" oninput="applyFilters()" placeholder="🔍 搜尋店名或料理 (例: 燒肉、牛舌、拉麵)..." class="flex-1 border border-slate-300 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:border-amber-500">
-            <span id="result-count" class="text-xs font-black text-amber-700 bg-amber-100 px-2 py-0.5 rounded shrink-0">符合 12 間</span>
+            <input type="text" id="keyword-input" oninput="applyFilters()" placeholder="🔍 搜尋店名或料理 (例: 牛舌、海鮮丼、烏龍麵)..." class="flex-1 border border-slate-300 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:border-amber-500">
+            <span id="result-count" class="text-xs font-black text-amber-700 bg-amber-100 px-2 py-0.5 rounded shrink-0">符合 250 間</span>
           </div>
         </div>
       </div>
 
       <!-- 排序與狀態提示 -->
       <div id="status-banner" class="bg-slate-800 text-slate-100 px-3 py-1.5 text-xs flex items-center justify-between shrink-0">
-        <span id="status-text" class="truncate mr-2">目前顯示：六本木駅（篩選後 12 / 12 間）</span>
+        <span id="status-text" class="truncate mr-2">載入中...</span>
         <select id="sort-select" onchange="applyFilters()" class="bg-slate-700 text-white text-[11px] rounded px-1.5 py-0.5 border border-slate-600 shrink-0">
           <option value="rating-desc">依星等：高 ➔ 低</option>
           <option value="price-asc">依預算：低 ➔ 高</option>
@@ -225,9 +233,15 @@
               <input type="text" id="f-name" placeholder="例: 29 Terrace" class="w-full border border-slate-300 rounded-lg px-2 py-1.5">
             </div>
             <div>
-              <label class="block text-slate-600 mb-0.5 font-medium">料理分類</label>
-              <input type="text" id="f-category" placeholder="例: 燒肉 / 牛舌" class="w-full border border-slate-300 rounded-lg px-2 py-1.5">
+              <label class="block text-slate-600 mb-0.5 font-medium">料理分類 (可點下方快速標籤)</label>
+              <input type="text" id="f-category" placeholder="例: 牛舌 / 炸豬排" class="w-full border border-slate-300 rounded-lg px-2 py-1.5">
             </div>
+          </div>
+
+          <!-- 快速點選簡潔分類標籤 -->
+          <div class="bg-slate-50 p-2 rounded-lg border border-slate-200">
+            <div class="text-[11px] text-slate-500 mb-1 font-semibold">🏷️ 點擊快速帶入標準分類標籤：</div>
+            <div class="flex flex-wrap gap-1" id="quick-category-tags"></div>
           </div>
 
           <div class="grid grid-cols-2 gap-2">
@@ -268,7 +282,7 @@
   </div>
 
   <script>
-    // 依東京站為中心向外排序，新宿與新宿三丁目相鄰
+    // 16 個指定車站座標設定
     const STATIONS = {
       tokyo:        { name: "東京駅", lat: 35.681236, lng: 139.767125, zoom: 15 },
       otemachi:     { name: "大手町駅", lat: 35.686524, lng: 139.764512, zoom: 16 },
@@ -288,3556 +302,372 @@
       mukogaoka:    { name: "向丘遊園駅", lat: 35.617821, lng: 139.565814, zoom: 16 }
     };
 
-    const DEFAULT_RESTAURANTS = [
-      {
-            "id": "sj_29terrace",
-            "station": "shinjuku",
-            "station_name": "新宿駅",
-            "name": "29 Terrace (29テラス)",
-            "category": "和牛燒肉 / 蔥包牛舌",
-            "rating": 3.56,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥6,000～￥7,999",
-            "dinner_min": 6000,
-            "dinner_max": 7999,
-            "lat": 35.68343,
-            "lng": 139.70129,
-            "url": "https://tabelog.com/tokyo/A1304/A130401/13263152/",
-            "note": "新宿南口/代代木旁超人氣厚切蔥包牛舌、A5黑毛和牛燒肉"
-      },
-      {
-            "id": "tk01",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "六厘舎 (東京駅一番街)",
-            "category": "沾麵 / 拉麵",
-            "rating": 3.78,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1000,
-            "lunch_max": 1999,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1000,
-            "dinner_max": 1999,
-            "lat": 35.67985,
-            "lng": 139.76762,
-            "url": "https://tabelog.com/tokyo/A1302/A130201/13093047/",
-            "note": "東京車站地下街超人氣濃厚魚介沾麵，百名店"
-      },
-      {
-            "id": "tk02",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "日本橋 蕎ノ字",
-            "category": "天婦羅",
-            "rating": 4.16,
-            "lunch_text": "￥20,000～￥29,999",
-            "lunch_min": 20000,
-            "lunch_max": 29999,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.6841,
-            "lng": 139.7782,
-            "url": "https://tabelog.com/tokyo/A1302/A130202/13200815/",
-            "note": "東京車站日本橋圈 4.0+ 傳奇江戶前天婦羅"
-      },
-      {
-            "id": "tk03",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "すきやばし次郎 本店",
-            "category": "江戶前壽司",
-            "rating": 4.08,
-            "lunch_text": "￥50,000～￥59,999",
-            "lunch_min": 50000,
-            "lunch_max": 59999,
-            "dinner_text": "￥50,000～￥59,999",
-            "dinner_min": 50000,
-            "dinner_max": 59999,
-            "lat": 35.67285,
-            "lng": 139.76382,
-            "url": "https://tabelog.com/tokyo/A1301/A130101/13002260/",
-            "note": "銀座/東京站周邊殿堂級壽司神店"
-      },
-      {
-            "id": "tk04",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "根室花まる KITTE丸の内店",
-            "category": "迴轉壽司",
-            "rating": 3.63,
-            "lunch_text": "￥2,000～￥2,999",
-            "lunch_min": 2000,
-            "lunch_max": 2999,
-            "dinner_text": "￥3,000～￥3,999",
-            "dinner_min": 3000,
-            "dinner_max": 3999,
-            "lat": 35.67968,
-            "lng": 139.76485,
-            "url": "https://tabelog.com/tokyo/A1302/A130201/13153814/",
-            "note": "丸之內南口 KITTE 5樓，北海道直送高CP值迴轉壽司"
-      },
-      {
-            "id": "tk05",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "つじ半 日本橋本店",
-            "category": "海鮮丼",
-            "rating": 3.76,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1200,
-            "lunch_max": 1999,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1200,
-            "dinner_max": 1999,
-            "lat": 35.68152,
-            "lng": 139.77125,
-            "url": "https://tabelog.com/tokyo/A1302/A130202/13146590/",
-            "note": "八重洲北口步行4分，珠寶盒海鮮丼配鯛魚高湯茶泡飯"
-      },
-      {
-            "id": "tk06",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "とんかつ まい泉 グランスタ東京店",
-            "category": "炸豬排 / 便當",
-            "rating": 3.38,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1000,
-            "lunch_max": 1999,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1000,
-            "dinner_max": 1999,
-            "lat": 35.6814,
-            "lng": 139.7665,
-            "url": "https://tabelog.com/tokyo/A1302/A130201/13114628/",
-            "note": "東京站改札內穩定好店，搭新幹線前買豬排三明治首選"
-      },
-      {
-            "id": "tk07",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "矢場とん 東京駅グランスタ八重洲店",
-            "category": "味噌炸豬排",
-            "rating": 3.45,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1200,
-            "lunch_max": 1999,
-            "dinner_text": "￥2,000～￥2,999",
-            "dinner_min": 2000,
-            "dinner_max": 2999,
-            "lat": 35.6808,
-            "lng": 139.7685,
-            "url": "https://tabelog.com/tokyo/A1302/A130201/13019676/",
-            "note": "名古屋名物濃厚紅味噌炸豬排，八重洲地下街直結"
-      },
-      {
-            "id": "sj01",
-            "station": "shinjuku",
-            "station_name": "新宿駅",
-            "name": "匠 達広",
-            "category": "江戶前壽司",
-            "rating": 4.04,
-            "lunch_text": "￥15,000～￥19,999",
-            "lunch_min": 15000,
-            "lunch_max": 19999,
-            "dinner_text": "￥30,000～￥39,999",
-            "dinner_min": 30000,
-            "dinner_max": 39999,
-            "lat": 35.6881,
-            "lng": 139.7082,
-            "url": "https://tabelog.com/tokyo/A1304/A130402/13091668/",
-            "note": "新宿御苑側 4.0+ 頂級壽司神店"
-      },
-      {
-            "id": "sj02",
-            "station": "shinjuku",
-            "station_name": "新宿駅",
-            "name": "風雲児 新宿本店",
-            "category": "雞白湯魚介沾麵",
-            "rating": 3.77,
-            "lunch_text": "～￥999",
-            "lunch_min": 900,
-            "lunch_max": 999,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1000,
-            "dinner_max": 1200,
-            "lat": 35.68715,
-            "lng": 139.69688,
-            "url": "https://tabelog.com/tokyo/A1304/A130401/13044091/",
-            "note": "新宿南口步行5分，極濃雞白湯魚介沾麵百名店"
-      },
-      {
-            "id": "sj03",
-            "station": "shinjuku",
-            "station_name": "新宿駅",
-            "name": "うどん 慎",
-            "category": "手打烏龍麵",
-            "rating": 3.74,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1000,
-            "lunch_max": 1999,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1000,
-            "dinner_max": 1999,
-            "lat": 35.6865,
-            "lng": 139.6975,
-            "url": "https://tabelog.com/tokyo/A1304/A130401/13125862/",
-            "note": "現切現煮天婦羅烏龍麵百名店"
-      },
-      {
-            "id": "sj04",
-            "station": "shinjuku",
-            "station_name": "新宿駅",
-            "name": "豚珍館",
-            "category": "炸豬排",
-            "rating": 3.71,
-            "lunch_text": "～￥999",
-            "lunch_min": 950,
-            "lunch_max": 999,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1000,
-            "dinner_max": 1999,
-            "lat": 35.6912,
-            "lng": 139.6968,
-            "url": "https://tabelog.com/tokyo/A1304/A130401/13000809/",
-            "note": "新宿西口平價炸豬排百名店，白飯豬肉湯免費續"
-      },
-      {
-            "id": "sj05",
-            "station": "shinjuku",
-            "station_name": "新宿駅",
-            "name": "牛かつ もと村 新宿南口店",
-            "category": "炸牛排",
-            "rating": 3.46,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1500,
-            "lunch_max": 1999,
-            "dinner_text": "￥2,000～￥2,999",
-            "dinner_min": 2000,
-            "dinner_max": 2999,
-            "lat": 35.68852,
-            "lng": 139.70195,
-            "url": "https://tabelog.com/tokyo/A1304/A130401/13181931/",
-            "note": "個人石板現煎炸牛排配山藥泥麥飯"
-      },
-      {
-            "id": "un01",
-            "station": "ueno",
-            "station_name": "上野駅",
-            "name": "とん八亭",
-            "category": "炸豬排",
-            "rating": 4.02,
-            "lunch_text": "￥2,000～￥2,999",
-            "lunch_min": 2200,
-            "lunch_max": 2999,
-            "dinner_text": "￥3,000～￥3,999",
-            "dinner_min": 3000,
-            "dinner_max": 3999,
-            "lat": 35.7098,
-            "lng": 139.7731,
-            "url": "https://tabelog.com/tokyo/A1311/A131101/13003590/",
-            "note": "上野南側 4.0+ 傳奇炸豬排神店，低溫慢炸極致柔嫩"
-      },
-      {
-            "id": "un02",
-            "station": "ueno",
-            "station_name": "上野駅",
-            "name": "ぽん多 本家",
-            "category": "炸豬排 / 洋食",
-            "rating": 3.86,
-            "lunch_text": "￥4,000～￥4,999",
-            "lunch_min": 4000,
-            "lunch_max": 4999,
-            "dinner_text": "￥5,000～￥5,999",
-            "dinner_min": 5000,
-            "dinner_max": 5999,
-            "lat": 35.7085,
-            "lng": 139.7728,
-            "url": "https://tabelog.com/tokyo/A1311/A131101/13003587/",
-            "note": "明治38年創業炸豬排發源老舖，Tabelog 銅賞"
-      },
-      {
-            "id": "un03",
-            "station": "ueno",
-            "station_name": "上野駅",
-            "name": "鴨to葱 上野御徒町本店",
-            "category": "鴨肉拉麵",
-            "rating": 3.75,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1000,
-            "lunch_max": 1999,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1000,
-            "dinner_max": 1999,
-            "lat": 35.7091,
-            "lng": 139.7752,
-            "url": "https://tabelog.com/tokyo/A1311/A131101/13210394/",
-            "note": "純粹鴨、蔥、水熬煮清湯拉麵，上野排隊百名店"
-      },
-      {
-            "id": "un04",
-            "station": "ueno",
-            "station_name": "上野駅",
-            "name": "肉の大山 上野店",
-            "category": "炸肉餅 / 立食牛排",
-            "rating": 3.49,
-            "lunch_text": "～￥999",
-            "lunch_min": 500,
-            "lunch_max": 999,
-            "dinner_text": "￥2,000～￥2,999",
-            "dinner_min": 2000,
-            "dinner_max": 2999,
-            "lat": 35.7102,
-            "lng": 139.7746,
-            "url": "https://tabelog.com/tokyo/A1311/A131101/13016729/",
-            "note": "阿美橫丁肉舖直營，現炸和牛可樂餅必吃"
-      },
-      {
-            "id": "sb01",
-            "station": "shibuya",
-            "station_name": "渋谷駅",
-            "name": "くろ﨑",
-            "category": "江戶前壽司",
-            "rating": 4.12,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥40,000～￥49,999",
-            "dinner_min": 40000,
-            "dinner_max": 49999,
-            "lat": 35.6612,
-            "lng": 139.7068,
-            "url": "https://tabelog.com/tokyo/A1303/A130301/13179724/",
-            "note": "澀谷 4.0+ 壽司傳奇名店，Tabelog 銀賞常客"
-      },
-      {
-            "id": "sb02",
-            "station": "shibuya",
-            "station_name": "渋谷駅",
-            "name": "挽肉と米 渋谷店",
-            "category": "炭火漢堡排",
-            "rating": 3.69,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1600,
-            "lunch_max": 1999,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1600,
-            "dinner_max": 1999,
-            "lat": 35.65952,
-            "lng": 139.69785,
-            "url": "https://tabelog.com/tokyo/A1303/A130301/13257261/",
-            "note": "道玄坂人氣現烤炭火漢堡排配羽釜白飯"
-      },
-      {
-            "id": "sb03",
-            "station": "shibuya",
-            "station_name": "渋谷駅",
-            "name": "極味や 渋谷パルコ店",
-            "category": "鐵板漢堡排",
-            "rating": 3.47,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1300,
-            "lunch_max": 1999,
-            "dinner_text": "￥2,000～￥2,999",
-            "dinner_min": 2000,
-            "dinner_max": 2999,
-            "lat": 35.66205,
-            "lng": 139.69875,
-            "url": "https://tabelog.com/tokyo/A1303/A130301/13241010/",
-            "note": "澀谷 PARCO B1，鐵板現煎伊萬里牛漢堡排"
-      },
-      {
-            "id": "km01",
-            "station": "kamiyacho",
-            "station_name": "神谷町駅",
-            "name": "鮨 さいとう",
-            "category": "江戶前壽司",
-            "rating": 4.45,
-            "lunch_text": "￥20,000～￥29,999",
-            "lunch_min": 20000,
-            "lunch_max": 29999,
-            "dinner_text": "￥30,000～￥39,999",
-            "dinner_min": 30000,
-            "dinner_max": 39999,
-            "lat": 35.6645,
-            "lng": 139.7428,
-            "url": "https://tabelog.com/tokyo/A1308/A130802/13015251/",
-            "note": "日本壽司最高殿堂之一，Tabelog 金賞"
-      },
-      {
-            "id": "km02",
-            "station": "kamiyacho",
-            "station_name": "神谷町駅",
-            "name": "ダ・ペッペ ナポリスタカ 神谷町店",
-            "category": "披薩 / 義大利麵",
-            "rating": 3.76,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1400,
-            "lunch_max": 1999,
-            "dinner_text": "￥5,000～￥5,999",
-            "dinner_min": 5000,
-            "dinner_max": 5999,
-            "lat": 35.6618,
-            "lng": 139.7445,
-            "url": "https://tabelog.com/tokyo/A1307/A130704/13132145/",
-            "note": "神谷町站2號出口旁，招牌星形披薩超人氣百名店"
-      },
-      {
-            "id": "km03",
-            "station": "kamiyacho",
-            "station_name": "神谷町駅",
-            "name": "麺処 若武者 麻布台ヒルズ店",
-            "category": "拉麵",
-            "rating": 3.42,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1000,
-            "lunch_max": 1500,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1000,
-            "dinner_max": 1500,
-            "lat": 35.6608,
-            "lng": 139.7441,
-            "url": "https://tabelog.com/tokyo/A1307/A130701/13291580/",
-            "note": "神谷町直結麻布台之丘，極上會津地雞鹽味拉麵"
-      },
-      {
-            "id": "13196420",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "東麻布 天本",
-            "category": "壽司",
-            "rating": 4.63,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.65731823791852,
-            "lng": 139.74345608299723,
-            "url": "https://tabelog.com/tw/tokyo/A1314/A131401/13196420/",
-            "note": "Tabelog 4.63★｜壽司"
-      },
-      {
-            "id": "ab02",
-            "station": "akabanebashi",
-            "station_name": "赤羽橋駅",
-            "name": "五代目 野田岩 麻布飯倉本店",
-            "category": "鰻魚料理",
-            "rating": 3.88,
-            "lunch_text": "￥5,000～￥5,999",
-            "lunch_min": 5000,
-            "lunch_max": 5999,
-            "dinner_text": "￥8,000～￥9,999",
-            "dinner_min": 8000,
-            "dinner_max": 9999,
-            "lat": 35.6575,
-            "lng": 139.7442,
-            "url": "https://tabelog.com/tokyo/A1307/A130704/13001265/",
-            "note": "東京鐵塔旁創業200年米其林老字號天然鰻魚名店"
-      },
-      {
-            "id": "ab03",
-            "station": "akabanebashi",
-            "station_name": "赤羽橋駅",
-            "name": "中国料理 萬力屋 東麻布店",
-            "category": "中華料理 / 擔擔麵",
-            "rating": 3.38,
-            "lunch_text": "～￥999",
-            "lunch_min": 900,
-            "lunch_max": 999,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1000,
-            "dinner_max": 1999,
-            "lat": 35.6548,
-            "lng": 139.7441,
-            "url": "https://tabelog.com/tokyo/A1314/A131401/13045612/",
-            "note": "赤羽橋站旁平價大份量黑芝麻擔擔麵與鐵鍋餃子"
-      },
-      {
-            "id": "rp01",
-            "station": "roppongi",
-            "station_name": "六本木駅",
-            "name": "日本料理 龍吟",
-            "category": "日本料理 / 懷石",
-            "rating": 4.28,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥50,000～￥59,999",
-            "dinner_min": 50000,
-            "dinner_max": 59999,
-            "lat": 35.6668,
-            "lng": 139.7342,
-            "url": "https://tabelog.com/tokyo/A1307/A130701/13000858/",
-            "note": "六本木周邊殿堂級米其林三星日本料理名店"
-      },
-      {
-            "id": "rp02",
-            "station": "roppongi",
-            "station_name": "六本木駅",
-            "name": "入鹿TOKYO 六本木店",
-            "category": "拉麵",
-            "rating": 3.87,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1300,
-            "lunch_max": 1999,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1300,
-            "dinner_max": 1999,
-            "lat": 35.6648,
-            "lng": 139.7325,
-            "url": "https://tabelog.com/tokyo/A1307/A130701/13264070/",
-            "note": "中城對面，牛肝菌松露醬油四重高湯拉麵百名店"
-      },
-      {
-            "id": "rp03",
-            "station": "roppongi",
-            "station_name": "六本木駅",
-            "name": "肉割烹 格之進F",
-            "category": "牛排 / 漢堡排",
-            "rating": 3.48,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1500,
-            "lunch_max": 1999,
-            "dinner_text": "￥8,000～￥9,999",
-            "dinner_min": 8000,
-            "dinner_max": 9999,
-            "lat": 35.6642,
-            "lng": 139.7355,
-            "url": "https://tabelog.com/tokyo/A1307/A130701/13171358/",
-            "note": "六本木泉花園，門崎熟成黑毛和牛炭烤與多汁漢堡排"
-      },
-      {
-            "id": "s301",
-            "station": "shinjuku3",
-            "station_name": "新宿三丁目駅",
-            "name": "鳥茂",
-            "category": "串燒 / 內臟料理",
-            "rating": 4.02,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥10,000～￥14,999",
-            "dinner_min": 10000,
-            "dinner_max": 14999,
-            "lat": 35.6888,
-            "lng": 139.7022,
-            "url": "https://tabelog.com/tokyo/A1304/A130401/13001067/",
-            "note": "昭和24年創業頂級炭火串燒神店"
-      },
-      {
-            "id": "s302",
-            "station": "shinjuku3",
-            "station_name": "新宿三丁目駅",
-            "name": "王ろじ",
-            "category": "炸豬排 / 咖哩",
-            "rating": 3.66,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1200,
-            "lunch_max": 1999,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1200,
-            "dinner_max": 1999,
-            "lat": 35.6914,
-            "lng": 139.7042,
-            "url": "https://tabelog.com/tokyo/A1304/A130401/13000857/",
-            "note": "大正十年創業百年老店，招牌炸豬排咖哩丼百名店"
-      },
-      {
-            "id": "s303",
-            "station": "shinjuku3",
-            "station_name": "新宿三丁目駅",
-            "name": "モンスナック",
-            "category": "咖哩飯",
-            "rating": 3.48,
-            "lunch_text": "～￥999",
-            "lunch_min": 850,
-            "lunch_max": 999,
-            "dinner_text": "～￥999",
-            "dinner_min": 850,
-            "dinner_max": 999,
-            "lat": 35.6912,
-            "lng": 139.7058,
-            "url": "https://tabelog.com/tokyo/A1304/A130401/13274291/",
-            "note": "新宿地下街老字號平價濃郁湯咖哩，千元有找"
-      },
-      {
-            "id": "ot01",
-            "station": "otemachi",
-            "station_name": "大手町駅",
-            "name": "アマン東京 ザ・ラウンジ",
-            "category": "義法料理 / 甜點",
-            "rating": 4.05,
-            "lunch_text": "￥8,000～￥9,999",
-            "lunch_min": 8000,
-            "lunch_max": 9999,
-            "dinner_text": "￥15,000～￥19,999",
-            "dinner_min": 15000,
-            "dinner_max": 19999,
-            "lat": 35.6872,
-            "lng": 139.7635,
-            "url": "https://tabelog.com/tokyo/A1302/A130201/13176100/",
-            "note": "大手町塔頂級高空景觀餐廳，奢華料理與下午茶"
-      },
-      {
-            "id": "ot02",
-            "station": "otemachi",
-            "station_name": "大手町駅",
-            "name": "港屋2 (星のや東京)",
-            "category": "蕎麥麵",
-            "rating": 3.66,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1100,
-            "lunch_max": 1500,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1100,
-            "dinner_max": 1500,
-            "lat": 35.6881,
-            "lng": 139.7652,
-            "url": "https://tabelog.com/tokyo/A1302/A130201/13199859/",
-            "note": "星野東京地下，招牌牛肉辣油沾蕎麥麵百名店"
-      },
-      {
-            "id": "ot03",
-            "station": "otemachi",
-            "station_name": "大手町駅",
-            "name": "大手町ラーメン",
-            "category": "拉麵",
-            "rating": 3.46,
-            "lunch_text": "～￥999",
-            "lunch_min": 800,
-            "lunch_max": 999,
-            "dinner_text": "～￥999",
-            "dinner_min": 800,
-            "dinner_max": 999,
-            "lat": 35.6868,
-            "lng": 139.7661,
-            "url": "https://tabelog.com/tokyo/A1302/A130201/13011317/",
-            "note": "大手町站直結地下街，滿滿叉燒與高麗菜的傳統人氣味噌拉麵"
-      },
-      {
-            "id": "nb01",
-            "station": "noborito",
-            "station_name": "登戶駅",
-            "name": "蓮爾 登戸店",
-            "category": "拉麵 / 二郎系",
-            "rating": 3.65,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "～￥999",
-            "dinner_min": 850,
-            "dinner_max": 999,
-            "lat": 35.6202,
-            "lng": 139.5695,
-            "url": "https://tabelog.com/kanagawa/A1405/A140506/14002622/",
-            "note": "登戶站南口步行5分，全日本最粗極太麵傳奇拉麵百名店"
-      },
-      {
-            "id": "nb02",
-            "station": "noborito",
-            "station_name": "登戶駅",
-            "name": "中華そば 幸大",
-            "category": "拉麵",
-            "rating": 3.54,
-            "lunch_text": "～￥999",
-            "lunch_min": 800,
-            "lunch_max": 999,
-            "dinner_text": "～￥999",
-            "dinner_min": 800,
-            "dinner_max": 999,
-            "lat": 35.6195,
-            "lng": 139.5718,
-            "url": "https://tabelog.com/kanagawa/A1405/A140506/14078426/",
-            "note": "登戶站旁清爽雞清湯與特製叉燒醬油拉麵名店"
-      },
-      {
-            "id": "nb03",
-            "station": "noborito",
-            "station_name": "登戶駅",
-            "name": "そば処 柏屋 登戸店",
-            "category": "蕎麥麵",
-            "rating": 3.47,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1000,
-            "lunch_max": 1500,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1000,
-            "dinner_max": 1999,
-            "lat": 35.6212,
-            "lng": 139.5705,
-            "url": "https://tabelog.com/kanagawa/A1405/A140506/14001923/",
-            "note": "登戶站前老字號手工江戶前蕎麥麵與現炸鴨肉天婦羅"
-      },
-      {
-            "id": "my01",
-            "station": "mukogaoka",
-            "station_name": "向丘遊園駅",
-            "name": "セテュヌ ボンニデー",
-            "category": "麵包 / 烘焙",
-            "rating": 3.79,
-            "lunch_text": "～￥999",
-            "lunch_min": 500,
-            "lunch_max": 999,
-            "dinner_text": "-",
-            "dinner_min": null,
-            "dinner_max": null,
-            "lat": 35.6185,
-            "lng": 139.5662,
-            "url": "https://tabelog.com/kanagawa/A1405/A140506/14052953/",
-            "note": "北口步行3分，藤子不二雄博物館沿線知名烘焙麵包百名店"
-      },
-      {
-            "id": "my02",
-            "station": "mukogaoka",
-            "station_name": "向丘遊園駅",
-            "name": "讃岐うどん 宗",
-            "category": "手打烏龍麵",
-            "rating": 3.73,
-            "lunch_text": "～￥999",
-            "lunch_min": 750,
-            "lunch_max": 999,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1000,
-            "dinner_max": 1500,
-            "lat": 35.6172,
-            "lng": 139.5645,
-            "url": "https://tabelog.com/kanagawa/A1405/A140506/14046487/",
-            "note": "南口步行5分，正統香川手打讚岐烏龍麵百名店"
-      },
-      {
-            "id": "my03",
-            "station": "mukogaoka",
-            "station_name": "向丘遊園駅",
-            "name": "カレーハウス ピアット",
-            "category": "咖哩飯",
-            "rating": 3.44,
-            "lunch_text": "～￥999",
-            "lunch_min": 800,
-            "lunch_max": 999,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1000,
-            "dinner_max": 1500,
-            "lat": 35.6168,
-            "lng": 139.5651,
-            "url": "https://tabelog.com/kanagawa/A1405/A140506/14008129/",
-            "note": "向丘遊園站前濃郁歐風牛肉熟成咖哩，在地高評價好店"
-      },
-      {
-            "id": "kg01",
-            "station": "komagome",
-            "station_name": "駒込駅",
-            "name": "鮨 惠",
-            "category": "江戶前壽司",
-            "rating": 4.04,
-            "lunch_text": "￥10,000～￥14,999",
-            "lunch_min": 10000,
-            "lunch_max": 14999,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.7372,
-            "lng": 139.7485,
-            "url": "https://tabelog.com/tokyo/A1323/A132301/13214589/",
-            "note": "駒込東口隱密頂級熟成江戶前壽司名店"
-      },
-      {
-            "id": "kg02",
-            "station": "komagome",
-            "station_name": "駒込駅",
-            "name": "ガンコンらーめん",
-            "category": "拉麵",
-            "rating": 3.72,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1000,
-            "lunch_max": 1500,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1000,
-            "dinner_max": 1500,
-            "lat": 35.7358,
-            "lng": 139.7455,
-            "url": "https://tabelog.com/tokyo/A1323/A132301/13155823/",
-            "note": "駒込站步行5分，純天然鮮美雞清湯醬油拉麵百名店"
-      },
-      {
-            "id": "kg03",
-            "station": "komagome",
-            "station_name": "駒込駅",
-            "name": "アルプス洋菓子店 駒込店",
-            "category": "蛋糕 / 洋菓子",
-            "rating": 3.46,
-            "lunch_text": "～￥999",
-            "lunch_min": 500,
-            "lunch_max": 999,
-            "dinner_text": "～￥999",
-            "dinner_min": 500,
-            "dinner_max": 999,
-            "lat": 35.7368,
-            "lng": 139.7468,
-            "url": "https://tabelog.com/tokyo/A1323/A132301/13012423/",
-            "note": "六義園散步必訪，創立於昭和34年老字號蒙布朗洋菓子店"
-      },
-      {
-            "id": "od01",
-            "station": "odaiba",
-            "station_name": "台場駅",
-            "name": "鉄板焼 浜木綿 (希爾頓台場)",
-            "category": "黑毛和牛鐵板燒",
-            "rating": 4.03,
-            "lunch_text": "￥8,000～￥9,999",
-            "lunch_min": 8000,
-            "lunch_max": 9999,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.6288,
-            "lng": 139.7708,
-            "url": "https://tabelog.com/tokyo/A1313/A131306/13009941/",
-            "note": "台場希爾頓內，眺望彩虹大橋與東京灣景極致鐵板燒神店"
-      },
-      {
-            "id": "od02",
-            "station": "odaiba",
-            "station_name": "台場駅",
-            "name": "ラーメン玉 お台場店",
-            "category": "濃厚魚介拉麵",
-            "rating": 3.62,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1000,
-            "lunch_max": 1500,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1000,
-            "dinner_max": 1500,
-            "lat": 35.6298,
-            "lng": 139.7718,
-            "url": "https://tabelog.com/tokyo/A1313/A131306/13194888/",
-            "note": "AQUA CiTY 東京拉麵國技館內，柴魚拉麵百名店"
-      },
-      {
-            "id": "od03",
-            "station": "odaiba",
-            "station_name": "台場駅",
-            "name": "Eggs 'n Things お台場店",
-            "category": "鬆餅 / 早午餐",
-            "rating": 3.48,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1500,
-            "lunch_max": 1999,
-            "dinner_text": "￥2,000～￥2,999",
-            "dinner_min": 2000,
-            "dinner_max": 2999,
-            "lat": 35.6292,
-            "lng": 139.7722,
-            "url": "https://tabelog.com/tokyo/A1313/A131306/13171372/",
-            "note": "露台面對東京灣自由女神像，超澎湃火山鮮奶油鬆餅"
-      },
-      {
-            "id": "dm01",
-            "station": "dome",
-            "station_name": "東京巨蛋城",
-            "name": "八五 (Chuka Soba Hachigo)",
-            "category": "法式清湯拉麵",
-            "rating": 4.15,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1200,
-            "lunch_max": 1999,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1200,
-            "dinner_max": 1999,
-            "lat": 35.7018,
-            "lng": 139.7542,
-            "url": "https://tabelog.com/tokyo/A1301/A130101/13228602/",
-            "note": "巨蛋周邊米其林一星法式生火腿高湯頂級拉麵神店"
-      },
-      {
-            "id": "dm02",
-            "station": "dome",
-            "station_name": "東京巨蛋城",
-            "name": "かつ吉 水道橋店",
-            "category": "炸豬排",
-            "rating": 3.76,
-            "lunch_text": "￥2,000～￥2,999",
-            "lunch_min": 2200,
-            "lunch_max": 2999,
-            "dinner_text": "￥3,000～￥3,999",
-            "dinner_min": 3000,
-            "dinner_max": 3999,
-            "lat": 35.7032,
-            "lng": 139.7538,
-            "url": "https://tabelog.com/tokyo/A1310/A131003/13000171/",
-            "note": "巨蛋南側昭和37年創業炸豬排百名店，肉質酥嫩"
-      },
-      {
-            "id": "dm03",
-            "station": "dome",
-            "station_name": "東京巨蛋城",
-            "name": "叙々苑 東京ドームシティラクーア店",
-            "category": "和牛燒肉",
-            "rating": 3.44,
-            "lunch_text": "￥3,000～￥3,999",
-            "lunch_min": 3000,
-            "lunch_max": 3999,
-            "dinner_text": "￥10,000～￥14,999",
-            "dinner_min": 10000,
-            "dinner_max": 14999,
-            "lat": 35.7062,
-            "lng": 139.7525,
-            "url": "https://tabelog.com/tokyo/A1310/A131004/13003882/",
-            "note": "巨蛋 LaQua 9樓景觀座位，午間高品質燒肉套餐"
-      },
-      {
-            "id": "sd01",
-            "station": "shiodome",
-            "station_name": "汐留 / 新橋駅",
-            "name": "趙楊",
-            "category": "四川料理",
-            "rating": 4.18,
-            "lunch_text": "￥15,000～￥19,999",
-            "lunch_min": 15000,
-            "lunch_max": 19999,
-            "dinner_text": "￥30,000～￥39,999",
-            "dinner_min": 30000,
-            "dinner_max": 39999,
-            "lat": 35.6645,
-            "lng": 139.7578,
-            "url": "https://tabelog.com/tokyo/A1301/A130103/13174246/",
-            "note": "正統川菜最高峰，Tabelog 銀賞傳奇名店"
-      },
-      {
-            "id": "sd02",
-            "station": "shiodome",
-            "station_name": "汐留 / 新橋駅",
-            "name": "新橋 纏 (Matoi)",
-            "category": "拉麵",
-            "rating": 3.79,
-            "lunch_text": "～￥999",
-            "lunch_min": 900,
-            "lunch_max": 999,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1000,
-            "dinner_max": 1500,
-            "lat": 35.6668,
-            "lng": 139.7572,
-            "url": "https://tabelog.com/tokyo/A1301/A130103/13156974/",
-            "note": "烏森小巷排隊百名店，比目魚乾熬製濃郁煮干醬油拉麵"
-      },
-      {
-            "id": "sd03",
-            "station": "shiodome",
-            "station_name": "汐留 / 新橋駅",
-            "name": "むさしや",
-            "category": "洋食 / 蛋包飯",
-            "rating": 3.48,
-            "lunch_text": "～￥999",
-            "lunch_min": 850,
-            "lunch_max": 999,
-            "dinner_text": "～￥999",
-            "dinner_min": 850,
-            "dinner_max": 999,
-            "lat": 35.6662,
-            "lng": 139.7585,
-            "url": "https://tabelog.com/tokyo/A1301/A130103/13023938/",
-            "note": "新橋站前大樓昭和百年洋食老舖，招牌黃金蛋包飯"
-      },
-      {
-            "id": "hn01",
-            "station": "haneda",
-            "station_name": "羽田機場駅",
-            "name": "鮨 魯山 羽田空港店",
-            "category": "江戶前壽司",
-            "rating": 4.02,
-            "lunch_text": "￥6,000～￥7,999",
-            "lunch_min": 6000,
-            "lunch_max": 7999,
-            "dinner_text": "￥10,000～￥14,999",
-            "dinner_min": 10000,
-            "dinner_max": 14999,
-            "lat": 35.5452,
-            "lng": 139.7685,
-            "url": "https://tabelog.com/tokyo/A1315/A131504/13117978/",
-            "note": "第3航廈國際線江戶小路，出境前品嚐4.0星江戶前握壽司"
-      },
-      {
-            "id": "hn02",
-            "station": "haneda",
-            "station_name": "羽田機場駅",
-            "name": "Hitoshinaya (ひとしなや)",
-            "category": "和食 / 粥 / 烤魚定食",
-            "rating": 3.66,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1200,
-            "lunch_max": 1999,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1200,
-            "dinner_max": 1999,
-            "lat": 35.5492,
-            "lng": 139.7845,
-            "url": "https://tabelog.com/tokyo/A1315/A131504/13171193/",
-            "note": "第1航廈北翼2樓，以一汁一菜純粹高湯聞名的百名店"
-      },
-      {
-            "id": "hn03",
-            "station": "haneda",
-            "station_name": "羽田機場駅",
-            "name": "焼肉 Champion 羽田空港店",
-            "category": "和牛燒肉 / 丼飯",
-            "rating": 3.49,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1500,
-            "lunch_max": 1999,
-            "dinner_text": "￥3,000～￥3,999",
-            "dinner_min": 3000,
-            "dinner_max": 3999,
-            "lat": 35.5448,
-            "lng": 139.7682,
-            "url": "https://tabelog.com/tokyo/A1315/A131504/13117983/",
-            "note": "第3航廈出境前享用A5黑毛和牛燒肉卷與現烤和牛燒肉丼"
-      },
-      {
-            "id": "17011166",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "片折",
-            "category": "日本料理",
-            "rating": 4.7,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 36.569571727165076,
-            "lng": 136.6679988455294,
-            "url": "https://tabelog.com/tw/ishikawa/A1701/A170101/17011166/",
-            "note": "Tabelog 4.7★｜日本料理"
-      },
-      {
-            "id": "13136847",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "新橋 星野",
-            "category": "日本料理",
-            "rating": 4.67,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.66243339872442,
-            "lng": 139.75532022420236,
-            "url": "https://tabelog.com/tw/tokyo/A1314/A131401/13136847/",
-            "note": "Tabelog 4.67★｜日本料理"
-      },
-      {
-            "id": "13249117",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "aca",
-            "category": "西班牙料理",
-            "rating": 4.66,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.68687299871432,
-            "lng": 139.77235288443728,
-            "url": "https://tabelog.com/tw/tokyo/A1302/A130202/13249117/",
-            "note": "Tabelog 4.66★｜西班牙料理"
-      },
-      {
-            "id": "13018162",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "日本橋蠣殼町 Sugita",
-            "category": "壽司",
-            "rating": 4.65,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.68193822872147,
-            "lng": 139.7849294143786,
-            "url": "https://tabelog.com/tw/tokyo/A1302/A130204/13018162/",
-            "note": "Tabelog 4.65★｜壽司"
-      },
-      {
-            "id": "13243463",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "蒼",
-            "category": "創新,法式料理",
-            "rating": 4.64,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.660044337910996,
-            "lng": 139.7252667830375,
-            "url": "https://tabelog.com/tw/tokyo/A1307/A130701/13243463/",
-            "note": "Tabelog 4.64★｜創新,法式料理"
-      },
-      {
-            "id": "26030764",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "道人",
-            "category": "日本料理",
-            "rating": 4.64,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.011775713331865,
-            "lng": 135.77549574248292,
-            "url": "https://tabelog.com/tw/kyoto/A2601/A260301/26030764/",
-            "note": "Tabelog 4.64★｜日本料理"
-      },
-      {
-            "id": "22037788",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "成生",
-            "category": "天婦羅",
-            "rating": 4.63,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 34.98501799871544,
-            "lng": 138.37617054832654,
-            "url": "https://tabelog.com/tw/shizuoka/A2201/A220101/22037788/",
-            "note": "Tabelog 4.63★｜天婦羅"
-      },
-      {
-            "id": "26033124",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "仁修樓",
-            "category": "中餐",
-            "rating": 4.62,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.052281777834466,
-            "lng": 135.74399482085107,
-            "url": "https://tabelog.com/tw/kyoto/A2601/A260503/26033124/",
-            "note": "Tabelog 4.62★｜中餐"
-      },
-      {
-            "id": "13300481",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "鮨 一幸",
-            "category": "壽司",
-            "rating": 4.62,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.66950157834758,
-            "lng": 139.76547999590605,
-            "url": "https://tabelog.com/tw/tokyo/A1301/A130101/13300481/",
-            "note": "Tabelog 4.62★｜壽司"
-      },
-      {
-            "id": "13015251",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "壽司 Saitou",
-            "category": "壽司",
-            "rating": 4.61,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.66538440871754,
-            "lng": 139.73959698424318,
-            "url": "https://tabelog.com/tw/tokyo/A1308/A130802/13015251/",
-            "note": "Tabelog 4.61★｜壽司"
-      },
-      {
-            "id": "27095402",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "鮨 三心",
-            "category": "壽司",
-            "rating": 4.61,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 34.6781569580002,
-            "lng": 135.51829250723029,
-            "url": "https://tabelog.com/tw/osaka/A2701/A270204/27095402/",
-            "note": "Tabelog 4.61★｜壽司"
-      },
-      {
-            "id": "13200949",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "銀座 Shinohara",
-            "category": "日本料理",
-            "rating": 4.6,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.67297361616242,
-            "lng": 139.76787095559897,
-            "url": "https://tabelog.com/tw/tokyo/A1301/A130101/13200949/",
-            "note": "Tabelog 4.6★｜日本料理"
-      },
-      {
-            "id": "20004238",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "柚木元",
-            "category": "日本料理",
-            "rating": 4.6,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.519482451530344,
-            "lng": 137.823037040868,
-            "url": "https://tabelog.com/tw/nagano/A2006/A200603/20004238/",
-            "note": "Tabelog 4.6★｜日本料理"
-      },
-      {
-            "id": "24012212",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "Komada",
-            "category": "壽司",
-            "rating": 4.6,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 34.49463351849795,
-            "lng": 136.7152296245375,
-            "url": "https://tabelog.com/tw/mie/A2403/A240301/24012212/",
-            "note": "Tabelog 4.6★｜壽司"
-      },
-      {
-            "id": "13188186",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "鮨 Arai",
-            "category": "壽司",
-            "rating": 4.59,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.668080768723186,
-            "lng": 139.7627225842542,
-            "url": "https://tabelog.com/tw/tokyo/A1301/A130101/13188186/",
-            "note": "Tabelog 4.59★｜壽司"
-      },
-      {
-            "id": "13205298",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "茶禪華",
-            "category": "中餐",
-            "rating": 4.59,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.649582258724,
-            "lng": 139.72837176409143,
-            "url": "https://tabelog.com/tw/tokyo/A1307/A130703/13205298/",
-            "note": "Tabelog 4.59★｜中餐"
-      },
-      {
-            "id": "40000415",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "近松",
-            "category": "壽司",
-            "rating": 4.59,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 33.580817387065046,
-            "lng": 130.3934253697385,
-            "url": "https://tabelog.com/tw/fukuoka/A4001/A400104/40000415/",
-            "note": "Tabelog 4.59★｜壽司"
-      },
-      {
-            "id": "13124391",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "松川",
-            "category": "日本料理",
-            "rating": 4.58,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.66747108871711,
-            "lng": 139.7423995442623,
-            "url": "https://tabelog.com/tw/tokyo/A1307/A130701/13124391/",
-            "note": "Tabelog 4.58★｜日本料理"
-      },
-      {
-            "id": "28057663",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "北野坂 木下",
-            "category": "義大利料理",
-            "rating": 4.58,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 34.69727749788404,
-            "lng": 135.19166468765238,
-            "url": "https://tabelog.com/tw/hyogo/A2801/A280101/28057663/",
-            "note": "Tabelog 4.58★｜義大利料理"
-      },
-      {
-            "id": "22019273",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "瞬",
-            "category": "鰻魚,蓋飯",
-            "rating": 4.58,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.03183883869039,
-            "lng": 138.3908695087892,
-            "url": "https://tabelog.com/tw/shizuoka/A2201/A220101/22019273/",
-            "note": "Tabelog 4.58★｜鰻魚,蓋飯"
-      },
-      {
-            "id": "22006811",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "溫石",
-            "category": "日本料理",
-            "rating": 4.57,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 34.860358698777425,
-            "lng": 138.32216599710523,
-            "url": "https://tabelog.com/tw/shizuoka/A2203/A220301/22006811/",
-            "note": "Tabelog 4.57★｜日本料理"
-      },
-      {
-            "id": "23080047",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "橦木町 Shimizu",
-            "category": "日本料理",
-            "rating": 4.57,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.18025495812742,
-            "lng": 136.91909356132,
-            "url": "https://tabelog.com/tw/aichi/A2301/A230104/23080047/",
-            "note": "Tabelog 4.57★｜日本料理"
-      },
-      {
-            "id": "20028578",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "Restaurant Naz",
-            "category": "創新",
-            "rating": 4.57,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 36.33447708790887,
-            "lng": 138.53471893184621,
-            "url": "https://tabelog.com/tw/nagano/A2003/A200301/20028578/",
-            "note": "Tabelog 4.57★｜創新"
-      },
-      {
-            "id": "17015162",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "木佐貫",
-            "category": "日本料理",
-            "rating": 4.57,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 36.56925733716587,
-            "lng": 136.66989059552492,
-            "url": "https://tabelog.com/tw/ishikawa/A1701/A170101/17015162/",
-            "note": "Tabelog 4.57★｜日本料理"
-      },
-      {
-            "id": "13266251",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "Kasahara",
-            "category": "烤雞肉串",
-            "rating": 4.56,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.70639353788619,
-            "lng": 139.7398162834955,
-            "url": "https://tabelog.com/tw/tokyo/A1309/A130905/13266251/",
-            "note": "Tabelog 4.56★｜烤雞肉串"
-      },
-      {
-            "id": "16009727",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "L'evo",
-            "category": "創新,創作料理,郷土料理",
-            "rating": 4.56,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 36.40141903737581,
-            "lng": 136.99439049360214,
-            "url": "https://tabelog.com/tw/toyama/A1605/A160502/16009727/",
-            "note": "Tabelog 4.56★｜創新,創作料理,郷土料理"
-      },
-      {
-            "id": "26016833",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "飯田",
-            "category": "日本料理",
-            "rating": 4.56,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.00979715982765,
-            "lng": 135.76476168479195,
-            "url": "https://tabelog.com/tw/kyoto/A2601/A260202/26016833/",
-            "note": "Tabelog 4.56★｜日本料理"
-      },
-      {
-            "id": "40000721",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "天壽司 京町店",
-            "category": "壽司",
-            "rating": 4.55,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 33.885252177028065,
-            "lng": 130.8844296824694,
-            "url": "https://tabelog.com/tw/fukuoka/A4004/A400401/40000721/",
-            "note": "Tabelog 4.55★｜壽司"
-      },
-      {
-            "id": "13252991",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "島津",
-            "category": "壽司",
-            "rating": 4.55,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.643175337924376,
-            "lng": 139.73364778286125,
-            "url": "https://tabelog.com/tw/tokyo/A1316/A131602/13252991/",
-            "note": "Tabelog 4.55★｜壽司"
-      },
-      {
-            "id": "22039375",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "馳走西健一",
-            "category": "法式料理,創新",
-            "rating": 4.55,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 34.855366937970174,
-            "lng": 138.30632657590417,
-            "url": "https://tabelog.com/tw/shizuoka/A2203/A220301/22039375/",
-            "note": "Tabelog 4.55★｜法式料理,創新"
-      },
-      {
-            "id": "27001286",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "本湖月",
-            "category": "日本料理",
-            "rating": 4.55,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 34.668222538001494,
-            "lng": 135.502539377141,
-            "url": "https://tabelog.com/tw/osaka/A2701/A270202/27001286/",
-            "note": "Tabelog 4.55★｜日本料理"
-      },
-      {
-            "id": "40034544",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "鮨 Sakai",
-            "category": "壽司",
-            "rating": 4.54,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 33.59106788706239,
-            "lng": 130.4055167598336,
-            "url": "https://tabelog.com/tw/fukuoka/A4001/A400103/40034544/",
-            "note": "Tabelog 4.54★｜壽司"
-      },
-      {
-            "id": "13224635",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "赤坂 Raimon",
-            "category": "燒肉,內臟類",
-            "rating": 4.54,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.676877578709174,
-            "lng": 139.73625269436164,
-            "url": "https://tabelog.com/tw/tokyo/A1308/A130801/13224635/",
-            "note": "Tabelog 4.54★｜燒肉,內臟類"
-      },
-      {
-            "id": "26012136",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "緒方",
-            "category": "日本料理",
-            "rating": 4.54,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.00319781786949,
-            "lng": 135.7560785503468,
-            "url": "https://tabelog.com/tw/kyoto/A2601/A260201/26012136/",
-            "note": "Tabelog 4.54★｜日本料理"
-      },
-      {
-            "id": "26040349",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "德ㇵ本也",
-            "category": "日本料理",
-            "rating": 4.54,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.036466977850566,
-            "lng": 135.76300224067802,
-            "url": "https://tabelog.com/tw/kyoto/A2601/A260503/26040349/",
-            "note": "Tabelog 4.54★｜日本料理"
-      },
-      {
-            "id": "19012518",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "TSUSHIMI",
-            "category": "法式料理,創新",
-            "rating": 4.54,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 0,
-            "lng": 0,
-            "url": "https://tabelog.com/tw/yamanashi/A1902/A190202/19012518/",
-            "note": "Tabelog 4.54★｜法式料理,創新"
-      },
-      {
-            "id": "22027669",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "日本料理FUJI",
-            "category": "日本料理",
-            "rating": 4.53,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 34.97476233872692,
-            "lng": 138.39175318821205,
-            "url": "https://tabelog.com/tw/shizuoka/A2201/A220101/22027669/",
-            "note": "Tabelog 4.53★｜日本料理"
-      },
-      {
-            "id": "34023887",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "馳走 啐啄一十 ",
-            "category": "日本料理",
-            "rating": 4.53,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 34.38747987721111,
-            "lng": 132.46081910643738,
-            "url": "https://tabelog.com/tw/hiroshima/A3401/A340117/34023887/",
-            "note": "Tabelog 4.53★｜日本料理"
-      },
-      {
-            "id": "13245499",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "赤坂Ogino",
-            "category": "日本料理",
-            "rating": 4.53,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.670897788712665,
-            "lng": 139.73528944430188,
-            "url": "https://tabelog.com/tw/tokyo/A1308/A130801/13245499/",
-            "note": "Tabelog 4.53★｜日本料理"
-      },
-      {
-            "id": "25004102",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "Uran",
-            "category": "鰻魚",
-            "rating": 4.53,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.011605627896934,
-            "lng": 135.85903579035957,
-            "url": "https://tabelog.com/tw/shiga/A2501/A250101/25004102/",
-            "note": "Tabelog 4.53★｜鰻魚"
-      },
-      {
-            "id": "13159567",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "Quintessence",
-            "category": "法式料理",
-            "rating": 4.52,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.62394580874179,
-            "lng": 139.73311792382916,
-            "url": "https://tabelog.com/tw/tokyo/A1314/A131405/13159567/",
-            "note": "Tabelog 4.52★｜法式料理"
-      },
-      {
-            "id": "13219857",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "壽司 Namba 日比谷",
-            "category": "壽司",
-            "rating": 4.52,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.67418838871825,
-            "lng": 139.75939517431823,
-            "url": "https://tabelog.com/tw/tokyo/A1301/A130102/13219857/",
-            "note": "Tabelog 4.52★｜壽司"
-      },
-      {
-            "id": "13185763",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "Takiya",
-            "category": "天婦羅",
-            "rating": 4.52,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.655601338722214,
-            "lng": 139.73477574414775,
-            "url": "https://tabelog.com/tw/tokyo/A1307/A130702/13185763/",
-            "note": "Tabelog 4.52★｜天婦羅"
-      },
-      {
-            "id": "13246316",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "Trace",
-            "category": "創新,法式料理",
-            "rating": 4.52,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 0,
-            "lng": 0,
-            "url": "https://tabelog.com/tw/tokyo/A1307/A130703/13246316/",
-            "note": "Tabelog 4.52★｜創新,法式料理"
-      },
-      {
-            "id": "41006295",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "katecuore",
-            "category": "義大利料理",
-            "rating": 4.52,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 33.273738017097756,
-            "lng": 129.88372383699402,
-            "url": "https://tabelog.com/tw/saga/A4102/A410202/41006295/",
-            "note": "Tabelog 4.52★｜義大利料理"
-      },
-      {
-            "id": "26026316",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "富小路 Yamgishi",
-            "category": "日本料理",
-            "rating": 4.51,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.00679422787001,
-            "lng": 135.764884080377,
-            "url": "https://tabelog.com/tw/kyoto/A2601/A260201/26026316/",
-            "note": "Tabelog 4.51★｜日本料理"
-      },
-      {
-            "id": "13001043",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "澤田",
-            "category": "壽司",
-            "rating": 4.51,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.670470268722475,
-            "lng": 139.76525273427654,
-            "url": "https://tabelog.com/tw/tokyo/A1301/A130101/13001043/",
-            "note": "Tabelog 4.51★｜壽司"
-      },
-      {
-            "id": "13042204",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "三谷",
-            "category": "壽司",
-            "rating": 4.51,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.68754416869974,
-            "lng": 139.72788182447522,
-            "url": "https://tabelog.com/tw/tokyo/A1309/A130902/13042204/",
-            "note": "Tabelog 4.51★｜壽司"
-      },
-      {
-            "id": "13259485",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "末冨",
-            "category": "日本料理",
-            "rating": 4.51,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 0,
-            "lng": 0,
-            "url": "https://tabelog.com/tw/tokyo/A1303/A130301/13259485/",
-            "note": "Tabelog 4.51★｜日本料理"
-      },
-      {
-            "id": "26013373",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "啐啄 Tsukamoto",
-            "category": "日本料理",
-            "rating": 4.51,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.00189420787613,
-            "lng": 135.7743135803209,
-            "url": "https://tabelog.com/tw/kyoto/A2601/A260301/26013373/",
-            "note": "Tabelog 4.51★｜日本料理"
-      },
-      {
-            "id": "13225413",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "Toshi",
-            "category": "中餐,創新",
-            "rating": 4.5,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.665261437909976,
-            "lng": 139.73248158308513,
-            "url": "https://tabelog.com/tw/tokyo/A1307/A130701/13225413/",
-            "note": "Tabelog 4.5★｜中餐,創新"
-      },
-      {
-            "id": "13241432",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "壽司 良月",
-            "category": "壽司",
-            "rating": 4.5,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.64529978872475,
-            "lng": 139.7221943740525,
-            "url": "https://tabelog.com/tw/tokyo/A1303/A130302/13241432/",
-            "note": "Tabelog 4.5★｜壽司"
-      },
-      {
-            "id": "1073214",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "壽司 Miyakawa",
-            "category": "壽司",
-            "rating": 4.5,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 43.06213404452226,
-            "lng": 141.31762137785105,
-            "url": "https://tabelog.com/tw/hokkaido/A0101/A010105/1073214/",
-            "note": "Tabelog 4.5★｜壽司"
-      },
-      {
-            "id": "13295095",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "CHIUnE",
-            "category": "創新,法式料理",
-            "rating": 4.5,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.67938874870803,
-            "lng": 139.737655784386,
-            "url": "https://tabelog.com/tw/tokyo/A1308/A130801/13295095/",
-            "note": "Tabelog 4.5★｜創新,法式料理"
-      },
-      {
-            "id": "5006041",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "鮨駒",
-            "category": "壽司",
-            "rating": 4.5,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 39.392721696448305,
-            "lng": 140.04756265167686,
-            "url": "https://tabelog.com/tw/akita/A0506/A050601/5006041/",
-            "note": "Tabelog 4.5★｜壽司"
-      },
-      {
-            "id": "42008914",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "pesceco",
-            "category": "創新",
-            "rating": 4.5,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 32.79838273674887,
-            "lng": 130.3690978606905,
-            "url": "https://tabelog.com/tw/nagasaki/A4203/A420302/42008914/",
-            "note": "Tabelog 4.5★｜創新"
-      },
-      {
-            "id": "13238306",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "鮨 Hashimoto",
-            "category": "壽司",
-            "rating": 4.49,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.67293873791847,
-            "lng": 139.77447818313325,
-            "url": "https://tabelog.com/tw/tokyo/A1313/A131301/13238306/",
-            "note": "Tabelog 4.49★｜壽司"
-      },
-      {
-            "id": "12038574",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "PRESENTE Sugi",
-            "category": "義大利料理,創新",
-            "rating": 4.49,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.712713108847545,
-            "lng": 140.24221444436893,
-            "url": "https://tabelog.com/tw/chiba/A1204/A120402/12038574/",
-            "note": "Tabelog 4.49★｜義大利料理,創新"
-      },
-      {
-            "id": "13256878",
-            "station": "tokyo",
-            "station_name": "東京駅",
-            "name": "SEZANNE",
-            "category": "法式料理",
-            "rating": 4.49,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥20,000～￥29,999",
-            "dinner_min": 20000,
-            "dinner_max": 29999,
-            "lat": 35.67809685871815,
-            "lng": 139.76687913435245,
-            "url": "https://tabelog.com/tw/tokyo/A1302/A130201/13256878/",
-            "note": "Tabelog 4.49★｜法式料理"
-      },
-      {
-            "id": "add_sj01",
-            "station": "shinjuku",
-            "station_name": "新宿駅",
-            "name": "とんかつ 豚珍館",
-            "category": "炸豬排",
-            "rating": 3.71,
-            "lunch_text": "～￥999",
-            "lunch_min": 950,
-            "lunch_max": 999,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1000,
-            "dinner_max": 1999,
-            "lat": 35.6912,
-            "lng": 139.6968,
-            "url": "https://tabelog.com/tokyo/A1304/A130401/13000809/",
-            "note": "新宿西口炸豬排百名店，平價高CP值"
-      },
-      {
-            "id": "add_sj03",
-            "station": "shinjuku",
-            "station_name": "新宿駅",
-            "name": "タカノフルーツパーラー 新宿本店",
-            "category": "水果聖代 / 咖啡廳",
-            "rating": 3.68,
-            "lunch_text": "￥2,000～￥2,999",
-            "lunch_min": 2000,
-            "lunch_max": 2999,
-            "dinner_text": "￥2,000～￥2,999",
-            "dinner_min": 2000,
-            "dinner_max": 2999,
-            "lat": 35.6915,
-            "lng": 139.7019,
-            "url": "https://tabelog.com/tokyo/A1304/A130401/13000798/",
-            "note": "新宿東口頂級水果甜點老舖"
-      },
-      {
-            "id": "add_sj04",
-            "station": "shinjuku",
-            "station_name": "新宿駅",
-            "name": "アカシア 新宿本店",
-            "category": "洋食 / 高麗菜捲",
-            "rating": 3.55,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1000,
-            "lunch_max": 1999,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1000,
-            "dinner_max": 1999,
-            "lat": 35.6924,
-            "lng": 139.7018,
-            "url": "https://tabelog.com/tokyo/A1304/A130401/13000912/",
-            "note": "招牌奶油燉高麗菜捲配咖哩飯"
-      },
-      {
-            "id": "add_sj05",
-            "station": "shinjuku",
-            "station_name": "新宿駅",
-            "name": "麺屋 海神 新宿店",
-            "category": "鮮魚鹽味拉麵",
-            "rating": 3.66,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1000,
-            "lunch_max": 1500,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1000,
-            "dinner_max": 1500,
-            "lat": 35.6897,
-            "lng": 139.7021,
-            "url": "https://tabelog.com/tokyo/A1304/A130401/13095619/",
-            "note": "新宿東南口30秒，清爽鮮魚骨熬製鹽味拉麵配烤飯糰"
-      },
-      {
-            "id": "add_sj06",
-            "station": "shinjuku",
-            "station_name": "新宿駅",
-            "name": "叙々苑 新宿小田急ハルク店",
-            "category": "燒肉",
-            "rating": 3.36,
-            "lunch_text": "￥3,000～￥3,999",
-            "lunch_min": 3000,
-            "lunch_max": 3999,
-            "dinner_text": "￥10,000～￥14,999",
-            "dinner_min": 10000,
-            "dinner_max": 14999,
-            "lat": 35.6921,
-            "lng": 139.6991,
-            "url": "https://tabelog.com/tokyo/A1304/A130401/13004192/",
-            "note": "超值午間燒肉套餐"
-      },
-      {
-            "id": "add_s3_01",
-            "station": "shinjuku_sanchome",
-            "station_name": "新宿三丁目駅",
-            "name": "金色不如帰 新宿御苑本店",
-            "category": "蛤蜊醬油拉麵",
-            "rating": 3.91,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1200,
-            "lunch_max": 1999,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1200,
-            "dinner_max": 1999,
-            "lat": 35.6884,
-            "lng": 139.7105,
-            "url": "https://tabelog.com/tokyo/A1304/A130402/13222172/",
-            "note": "米其林一星黃金蛤蜊松露拉麵"
-      },
-      {
-            "id": "add_s3_02",
-            "station": "shinjuku_sanchome",
-            "station_name": "新宿三丁目駅",
-            "name": "ハンバーグ ウィル (Hamburg Will)",
-            "category": "岩中豚漢堡排",
-            "rating": 3.72,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1300,
-            "lunch_max": 1999,
-            "dinner_text": "￥2,000～￥2,999",
-            "dinner_min": 2000,
-            "dinner_max": 2999,
-            "lat": 35.6895,
-            "lng": 139.7112,
-            "url": "https://tabelog.com/tokyo/A1304/A130402/13041176/",
-            "note": "100%岩手縣岩中豚多汁漢堡排百名店"
-      },
-      {
-            "id": "add_s3_03",
-            "station": "shinjuku_sanchome",
-            "station_name": "新宿三丁目駅",
-            "name": "王ろじ (Oroji)",
-            "category": "炸豬排 / 豬排咖哩",
-            "rating": 3.7,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1200,
-            "lunch_max": 1999,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1200,
-            "dinner_max": 1999,
-            "lat": 35.6914,
-            "lng": 139.7042,
-            "url": "https://tabelog.com/tokyo/A1304/A130401/13000860/",
-            "note": "大正10年創業百年老店，招牌とん丼(炸豬排咖哩碗)"
-      },
-      {
-            "id": "add_s3_04",
-            "station": "shinjuku_sanchome",
-            "station_name": "新宿三丁目駅",
-            "name": "カフェ アリエ (Cafe Aaliya)",
-            "category": "法式吐司 / 咖啡",
-            "rating": 3.64,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1000,
-            "lunch_max": 1999,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1000,
-            "dinner_max": 1999,
-            "lat": 35.6902,
-            "lng": 139.7051,
-            "url": "https://tabelog.com/tokyo/A1304/A130401/13000698/",
-            "note": "新宿三丁目站B2出口旁，外酥內嫩鐵板法式吐司名店"
-      },
-      {
-            "id": "add_s3_05",
-            "station": "shinjuku_sanchome",
-            "station_name": "新宿三丁目駅",
-            "name": "追分だんご本舗 新宿本店",
-            "category": "日式糰子 / 甘味處",
-            "rating": 3.71,
-            "lunch_text": "～￥999",
-            "lunch_min": 500,
-            "lunch_max": 999,
-            "dinner_text": "～￥999",
-            "dinner_min": 500,
-            "dinner_max": 999,
-            "lat": 35.6908,
-            "lng": 139.7058,
-            "url": "https://tabelog.com/tokyo/A1304/A130401/13000825/",
-            "note": "手作現搗麻糬糰子與刨冰百名店"
-      },
-      {
-            "id": "add_s3_06",
-            "station": "shinjuku_sanchome",
-            "station_name": "新宿三丁目駅",
-            "name": "ホルモン千葉 新宿店",
-            "category": "鐵板內臟燒肉",
-            "rating": 3.58,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥4,000～￥4,999",
-            "dinner_min": 4000,
-            "dinner_max": 4999,
-            "lat": 35.6911,
-            "lng": 139.7069,
-            "url": "https://tabelog.com/tokyo/A1304/A130401/13224812/",
-            "note": "專人代烤濃郁黑醬汁鐵板內臟加烏龍麵"
-      },
-      {
-            "id": "add_un01",
-            "station": "ueno",
-            "station_name": "上野駅",
-            "name": "とんかつ山家 御徒町店",
-            "category": "炸豬排",
-            "rating": 3.74,
-            "lunch_text": "～￥999",
-            "lunch_min": 850,
-            "lunch_max": 999,
-            "dinner_text": "～￥999",
-            "dinner_min": 850,
-            "dinner_max": 999,
-            "lat": 35.7082,
-            "lng": 139.7745,
-            "url": "https://tabelog.com/tokyo/A1311/A131101/13142429/",
-            "note": "千元有找的超厚切炸豬排百名店"
-      },
-      {
-            "id": "add_un03",
-            "station": "ueno",
-            "station_name": "上野駅",
-            "name": "デリー (Delhi) 上野店",
-            "category": "印度/喀什米爾咖哩",
-            "rating": 3.77,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1100,
-            "lunch_max": 1600,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1100,
-            "dinner_max": 1999,
-            "lat": 35.7069,
-            "lng": 139.7718,
-            "url": "https://tabelog.com/tokyo/A1311/A131101/13003605/",
-            "note": "昭和31年創業咖哩百名店，必點極辛香醇喀什米爾咖哩"
-      },
-      {
-            "id": "add_un05",
-            "station": "ueno",
-            "station_name": "上野駅",
-            "name": "みはし 上野本店",
-            "category": "紅豆餡蜜 / 甜點",
-            "rating": 3.76,
-            "lunch_text": "～￥999",
-            "lunch_min": 700,
-            "lunch_max": 999,
-            "dinner_text": "～￥999",
-            "dinner_min": 700,
-            "dinner_max": 999,
-            "lat": 35.7115,
-            "lng": 139.7738,
-            "url": "https://tabelog.com/tokyo/A1311/A131101/13003509/",
-            "note": "上野公園前傳統甘味處百名店"
-      },
-      {
-            "id": "add_un06",
-            "station": "ueno",
-            "station_name": "上野駅",
-            "name": "大統領 本店",
-            "category": "居酒屋 / 串燒",
-            "rating": 3.48,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1000,
-            "lunch_max": 1999,
-            "dinner_text": "￥2,000～￥2,999",
-            "dinner_min": 2000,
-            "dinner_max": 2999,
-            "lat": 35.7106,
-            "lng": 139.7749,
-            "url": "https://tabelog.com/tokyo/A1311/A131101/13016742/",
-            "note": "鐵道下超人氣大眾串燒酒場"
-      },
-      {
-            "id": "add_sb02",
-            "station": "shibuya",
-            "station_name": "渋谷駅",
-            "name": "中華ソバ 櫻坂",
-            "category": "柴魚雞湯拉麵",
-            "rating": 3.74,
-            "lunch_text": "～￥999",
-            "lunch_min": 900,
-            "lunch_max": 999,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1000,
-            "dinner_max": 1500,
-            "lat": 35.6558,
-            "lng": 139.7024,
-            "url": "https://tabelog.com/tokyo/A1303/A130301/13025517/",
-            "note": "澀谷櫻丘町拉麵百名店"
-      },
-      {
-            "id": "add_sb03",
-            "station": "shibuya",
-            "station_name": "渋谷駅",
-            "name": "瑞兆 (Zuicho)",
-            "category": "炸豬排蓋飯",
-            "rating": 3.67,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1000,
-            "lunch_max": 1500,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1000,
-            "dinner_max": 1500,
-            "lat": 35.6624,
-            "lng": 139.6948,
-            "url": "https://tabelog.com/tokyo/A1303/A130301/13012649/",
-            "note": "滑嫩半熟蛋鋪底的酥脆豬排丼"
-      },
-      {
-            "id": "add_sb04",
-            "station": "shibuya",
-            "station_name": "渋谷駅",
-            "name": "とんかつ 檍 渋谷店",
-            "category": "林SPF炸豬排",
-            "rating": 3.57,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1300,
-            "lunch_max": 1999,
-            "dinner_text": "￥2,000～￥2,999",
-            "dinner_min": 2000,
-            "dinner_max": 2999,
-            "lat": 35.6584,
-            "lng": 139.7045,
-            "url": "https://tabelog.com/tokyo/A1303/A130301/13275810/",
-            "note": "厚切多汁炸豬排配岩鹽"
-      },
-      {
-            "id": "add_sb06",
-            "station": "shibuya",
-            "station_name": "渋谷駅",
-            "name": "ムルギー (Murugi)",
-            "category": "熟成咖哩飯",
-            "rating": 3.68,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1100,
-            "lunch_max": 1500,
-            "dinner_text": "-",
-            "dinner_min": null,
-            "dinner_max": null,
-            "lat": 35.6582,
-            "lng": 139.6961,
-            "url": "https://tabelog.com/tokyo/A1303/A130301/13001737/",
-            "note": "道玄坂老字號咖哩百名店"
-      },
-      {
-            "id": "add_km01",
-            "station": "kamiyacho",
-            "station_name": "神谷町駅",
-            "name": "ナポリスタカ 神谷町店 (Napolistaca)",
-            "category": "窯烤披薩 / 義式",
-            "rating": 3.71,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1500,
-            "lunch_max": 1999,
-            "dinner_text": "￥4,000～￥4,999",
-            "dinner_min": 4000,
-            "dinner_max": 4999,
-            "lat": 35.6615,
-            "lng": 139.7442,
-            "url": "https://tabelog.com/tokyo/A1307/A130704/13132502/",
-            "note": "神谷町超人氣星形窯烤拿坡里披薩百名店"
-      },
-      {
-            "id": "add_km02",
-            "station": "kamiyacho",
-            "station_name": "神谷町駅",
-            "name": "めん徳 二代目 つじ田 神谷町店",
-            "category": "濃厚魚介沾麵",
-            "rating": 3.56,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1000,
-            "lunch_max": 1500,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1000,
-            "dinner_max": 1500,
-            "lat": 35.6632,
-            "lng": 139.7455,
-            "url": "https://tabelog.com/tokyo/A1307/A130704/13044572/",
-            "note": "神谷町站步行1分，經典酸橘黑七味豚骨魚介沾麵"
-      },
-      {
-            "id": "add_km03",
-            "station": "kamiyacho",
-            "station_name": "神谷町駅",
-            "name": "博多天ぷら たかお UMU麻布台ヒルズ店",
-            "category": "天婦羅定食",
-            "rating": 3.48,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1600,
-            "lunch_max": 1999,
-            "dinner_text": "￥2,000～￥2,999",
-            "dinner_min": 2000,
-            "dinner_max": 2999,
-            "lat": 35.6608,
-            "lng": 139.7405,
-            "url": "https://tabelog.com/tokyo/A1307/A130704/13290852/",
-            "note": "麻布台Hills內現炸天婦羅，明太子與淺漬免費吃到飽"
-      },
-      {
-            "id": "add_km04",
-            "station": "kamiyacho",
-            "station_name": "神谷町駅",
-            "name": "パーラー矢澤 麻布台ヒルズ",
-            "category": "和牛漢堡排 / 洋食",
-            "rating": 3.52,
-            "lunch_text": "￥2,000～￥2,999",
-            "lunch_min": 2000,
-            "lunch_max": 2999,
-            "dinner_text": "￥3,000～￥3,999",
-            "dinner_min": 3000,
-            "dinner_max": 3999,
-            "lat": 35.6605,
-            "lng": 139.7408,
-            "url": "https://tabelog.com/tokyo/A1307/A130704/13291401/",
-            "note": "燒肉名店矢澤打造的大人兒童餐與漢堡排"
-      },
-      {
-            "id": "add_km05",
-            "station": "kamiyacho",
-            "station_name": "神谷町駅",
-            "name": "カレーの店 ガン爺 (Ganjii)",
-            "category": "香料咖哩飯",
-            "rating": 3.66,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1000,
-            "lunch_max": 1300,
-            "dinner_text": "-",
-            "dinner_min": null,
-            "dinner_max": null,
-            "lat": 35.6641,
-            "lng": 139.7462,
-            "url": "https://tabelog.com/tokyo/A1307/A130704/13125105/",
-            "note": "神谷町上班族排隊辛口香料咖哩百名店"
-      },
-      {
-            "id": "add_ak02",
-            "station": "akabanebashi",
-            "station_name": "赤羽橋駅",
-            "name": "東京 芝 とうふ屋うかい",
-            "category": "豆腐懷石料理",
-            "rating": 3.75,
-            "lunch_text": "￥6,000～￥7,999",
-            "lunch_min": 6000,
-            "lunch_max": 7999,
-            "dinner_text": "￥10,000～￥14,999",
-            "dinner_min": 10000,
-            "dinner_max": 14999,
-            "lat": 35.6575,
-            "lng": 139.7458,
-            "url": "https://tabelog.com/tokyo/A1314/A131401/13019665/",
-            "note": "東京鐵塔正下方絕美日式庭園，招牌豆水豆腐與油揚"
-      },
-      {
-            "id": "add_ak03",
-            "station": "akabanebashi",
-            "station_name": "赤羽橋駅",
-            "name": "タワシタ (Tawashita)",
-            "category": "洋食 / 漢堡排",
-            "rating": 3.59,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1200,
-            "lunch_max": 1999,
-            "dinner_text": "￥4,000～￥4,999",
-            "dinner_min": 4000,
-            "dinner_max": 4999,
-            "lat": 35.6552,
-            "lng": 139.7441,
-            "url": "https://tabelog.com/tokyo/A1314/A131401/13163285/",
-            "note": "赤羽橋步行2分，人氣手打漢堡排與紅酒燉牛肉定食"
-      },
-      {
-            "id": "add_ak04",
-            "station": "akabanebashi",
-            "station_name": "赤羽橋駅",
-            "name": "ラーメン二郎 三田本店",
-            "category": "二郎系拉麵",
-            "rating": 3.76,
-            "lunch_text": "～￥999",
-            "lunch_min": 700,
-            "lunch_max": 999,
-            "dinner_text": "-",
-            "dinner_min": null,
-            "dinner_max": null,
-            "lat": 35.6481,
-            "lng": 139.7418,
-            "url": "https://tabelog.com/tokyo/A1314/A131402/13006051/",
-            "note": "赤羽橋/三田步行圈，全日本二郎系拉麵朝聖總本店"
-      },
-      {
-            "id": "add_ak05",
-            "station": "akabanebashi",
-            "station_name": "赤羽橋駅",
-            "name": "ル・パン・コティディアン 芝公園店",
-            "category": "早午餐 / 烘焙咖啡",
-            "rating": 3.55,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1200,
-            "lunch_max": 1999,
-            "dinner_text": "￥2,000～￥2,999",
-            "dinner_min": 2000,
-            "dinner_max": 2999,
-            "lat": 35.6581,
-            "lng": 139.7485,
-            "url": "https://tabelog.com/tokyo/A1314/A131401/13120823/",
-            "note": "芝公園綠意旁比利時有機烘焙早午餐，可遠眺東京鐵塔"
-      },
-      {
-            "id": "add_rp01",
-            "station": "roppongi",
-            "station_name": "六本木駅",
-            "name": "入鹿TOKYO 六本木 (Iruca Tokyo)",
-            "category": "松露牛肝菌拉麵",
-            "rating": 3.88,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1200,
-            "lunch_max": 1999,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1200,
-            "dinner_max": 1999,
-            "lat": 35.6648,
-            "lng": 139.7305,
-            "url": "https://tabelog.com/tokyo/A1307/A130701/13263975/",
-            "note": "東京Midtown對面，雞、豬、伊勢龍蝦與貝類四重湯頭百名店"
-      },
-      {
-            "id": "add_rp02",
-            "station": "roppongi",
-            "station_name": "六本木駅",
-            "name": "AFURI 六本木交差点",
-            "category": "柚子鹽拉麵",
-            "rating": 3.46,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1100,
-            "lunch_max": 1600,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1100,
-            "dinner_max": 1600,
-            "lat": 35.6625,
-            "lng": 139.7318,
-            "url": "https://tabelog.com/tokyo/A1307/A130701/13158214/",
-            "note": "六本木十字路口清爽柚子鹽拉麵與炙燒叉燒飯"
-      },
-      {
-            "id": "add_rp03",
-            "station": "roppongi",
-            "station_name": "六本木駅",
-            "name": "豚組 食堂 (六本木ヒルズ)",
-            "category": "炸豬排定食",
-            "rating": 3.59,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1400,
-            "lunch_max": 1999,
-            "dinner_text": "￥2,000～￥2,999",
-            "dinner_min": 2000,
-            "dinner_max": 2999,
-            "lat": 35.6604,
-            "lng": 139.7292,
-            "url": "https://tabelog.com/tokyo/A1307/A130701/13154565/",
-            "note": "六本木Hills地下二樓，嚴選日本銘柄豚多汁炸豬排"
-      },
-      {
-            "id": "add_rp04",
-            "station": "roppongi",
-            "station_name": "六本木駅",
-            "name": "つるとんたん 六本木店",
-            "category": "大碗創意烏龍麵",
-            "rating": 3.52,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1200,
-            "lunch_max": 1999,
-            "dinner_text": "￥2,000～￥2,999",
-            "dinner_min": 2000,
-            "dinner_max": 2999,
-            "lat": 35.6635,
-            "lng": 139.7342,
-            "url": "https://tabelog.com/tokyo/A1307/A130701/13019555/",
-            "note": "免費加麵至3球，明太子奶油烏龍麵與大豆皮烏龍麵"
-      },
-      {
-            "id": "add_rp05",
-            "station": "roppongi",
-            "station_name": "六本木駅",
-            "name": "焼肉 冷麺 ユッチャン。 六本木本店",
-            "category": "燒肉 / 葛切冷麵",
-            "rating": 3.69,
-            "lunch_text": "￥2,000～￥2,999",
-            "lunch_min": 2000,
-            "lunch_max": 2999,
-            "dinner_text": "￥8,000～￥9,999",
-            "dinner_min": 8000,
-            "dinner_max": 9999,
-            "lat": 35.6631,
-            "lng": 139.7302,
-            "url": "https://tabelog.com/tokyo/A1307/A130701/13230232/",
-            "note": "夏威夷名店登陸六本木，必點冰沙高湯葛切冷麵與LA牛小排"
-      },
-      {
-            "id": "add_ot01",
-            "station": "otemachi",
-            "station_name": "大手町駅",
-            "name": "リトル小岩井 (Little Koiwai)",
-            "category": "拿坡里義大利麵",
-            "rating": 3.71,
-            "lunch_text": "～￥999",
-            "lunch_min": 650,
-            "lunch_max": 999,
-            "dinner_text": "～￥999",
-            "dinner_min": 650,
-            "dinner_max": 999,
-            "lat": 35.6862,
-            "lng": 139.7645,
-            "url": "https://tabelog.com/tokyo/A1302/A130201/13000043/",
-            "note": "大手町地下街直結，千元有找的昭和鐵板炒義大利麵百名店"
-      },
-      {
-            "id": "add_ot02",
-            "station": "otemachi",
-            "station_name": "大手町駅",
-            "name": "港屋2 (Minatoya 2)",
-            "category": "辣油肉蕎麥麵",
-            "rating": 3.64,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1000,
-            "lunch_max": 1200,
-            "dinner_text": "-",
-            "dinner_min": null,
-            "dinner_max": null,
-            "lat": 35.6885,
-            "lng": 139.7632,
-            "url": "https://tabelog.com/tokyo/A1302/A130201/13198747/",
-            "note": "大手町星野東京一樓，傳奇立食辣油冷肉蕎麥麵"
-      },
-      {
-            "id": "add_ot03",
-            "station": "otemachi",
-            "station_name": "大手町駅",
-            "name": "つじ田 大手町店",
-            "category": "豚骨魚介沾麵",
-            "rating": 3.55,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1000,
-            "lunch_max": 1500,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1000,
-            "dinner_max": 1500,
-            "lat": 35.6868,
-            "lng": 139.7651,
-            "url": "https://tabelog.com/tokyo/A1302/A130201/13199502/",
-            "note": "大手町OOTEMORI地下二樓，濃郁雙湯頭沾麵"
-      },
-      {
-            "id": "add_ot04",
-            "station": "otemachi",
-            "station_name": "大手町駅",
-            "name": "とんかつ まるや 大手町店",
-            "category": "炸豬排定食",
-            "rating": 3.46,
-            "lunch_text": "～￥999",
-            "lunch_min": 800,
-            "lunch_max": 999,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1000,
-            "dinner_max": 1999,
-            "lat": 35.6859,
-            "lng": 139.7641,
-            "url": "https://tabelog.com/tokyo/A1302/A130201/13143628/",
-            "note": "大手町上班族最愛，¥800起炸里肌豬排定食配蜆湯"
-      },
-      {
-            "id": "add_ot05",
-            "station": "otemachi",
-            "station_name": "大手町駅",
-            "name": "インデアンカレー 大手町店",
-            "category": "日式咖哩飯",
-            "rating": 3.56,
-            "lunch_text": "～￥999",
-            "lunch_min": 880,
-            "lunch_max": 999,
-            "dinner_text": "～￥999",
-            "dinner_min": 880,
-            "dinner_max": 999,
-            "lat": 35.6865,
-            "lng": 139.7638,
-            "url": "https://tabelog.com/tokyo/A1302/A130201/13200125/",
-            "note": "上菜只要10秒的濃厚微辣高麗菜泡菜咖哩"
-      },
-      {
-            "id": "add_nb01",
-            "station": "noborito",
-            "station_name": "登戸駅",
-            "name": "FUGLEN COFFEE ROASTERS 登戸",
-            "category": "北歐烘焙咖啡 / 鬆餅",
-            "rating": 3.58,
-            "lunch_text": "～￥999",
-            "lunch_min": 600,
-            "lunch_max": 999,
-            "dinner_text": "～￥999",
-            "dinner_min": 600,
-            "dinner_max": 999,
-            "lat": 35.6212,
-            "lng": 139.5698,
-            "url": "https://tabelog.com/kanagawa/A1405/A140506/14076895/",
-            "note": "登戶站步行2分多摩川畔，挪威奧斯陸知名咖啡烘豆所與棕色起司鬆餅"
-      },
-      {
-            "id": "add_nb02",
-            "station": "noborito",
-            "station_name": "登戸駅",
-            "name": "鮮藍坊 (Shenlanfang 登戸)",
-            "category": "四川麻婆豆腐 / 擔擔麵",
-            "rating": 3.56,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1000,
-            "lunch_max": 1500,
-            "dinner_text": "￥2,000～￥2,999",
-            "dinner_min": 2000,
-            "dinner_max": 2999,
-            "lat": 35.6195,
-            "lng": 139.5682,
-            "url": "https://tabelog.com/kanagawa/A1405/A140506/14062145/",
-            "note": "登戶站周邊高評價正宗四川料理，必點石鍋麻婆豆腐午間定食"
-      },
-      {
-            "id": "add_nb03",
-            "station": "noborito",
-            "station_name": "登戸駅",
-            "name": "中華そば 昂 (Subarashiki)",
-            "category": "醬油拉麵 / 沾麵",
-            "rating": 3.52,
-            "lunch_text": "～￥999",
-            "lunch_min": 850,
-            "lunch_max": 999,
-            "dinner_text": "～￥999",
-            "dinner_min": 850,
-            "dinner_max": 999,
-            "lat": 35.6205,
-            "lng": 139.5691,
-            "url": "https://tabelog.com/kanagawa/A1405/A140506/14078512/",
-            "note": "登戶站北口步行2分，香醇雞湯與魚介手揉麵拉麵"
-      },
-      {
-            "id": "add_nb04",
-            "station": "noborito",
-            "station_name": "登戸駅",
-            "name": "焼肉 慶 (Kei 登戸)",
-            "category": "黑毛和牛燒肉",
-            "rating": 3.45,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1200,
-            "lunch_max": 1999,
-            "dinner_text": "￥4,000～￥4,999",
-            "dinner_min": 4000,
-            "dinner_max": 4999,
-            "lat": 35.6198,
-            "lng": 139.5705,
-            "url": "https://tabelog.com/kanagawa/A1405/A140506/14051230/",
-            "note": "登戶站前人氣燒肉店，午間超值和牛燒肉定食"
-      },
-      {
-            "id": "add_nb05",
-            "station": "noborito",
-            "station_name": "登戸駅",
-            "name": "とんかつ 鉄 (Tetsu)",
-            "category": "熟成炸豬排",
-            "rating": 3.54,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1200,
-            "lunch_max": 1999,
-            "dinner_text": "￥2,000～￥2,999",
-            "dinner_min": 2000,
-            "dinner_max": 2999,
-            "lat": 35.6182,
-            "lng": 139.5655,
-            "url": "https://tabelog.com/kanagawa/A1405/A140506/14068921/",
-            "note": "登戶/向丘遊園步行圈，金黃酥脆熟成豬排定食"
-      },
-      {
-            "id": "add_nb06",
-            "station": "noborito",
-            "station_name": "登戸駅",
-            "name": "ポルタ モンターレ (Porta Montare)",
-            "category": "義大利麵 / 窯烤披薩",
-            "rating": 3.43,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1200,
-            "lunch_max": 1999,
-            "dinner_text": "￥3,000～￥3,999",
-            "dinner_min": 3000,
-            "dinner_max": 3999,
-            "lat": 35.6201,
-            "lng": 139.5688,
-            "url": "https://tabelog.com/kanagawa/A1405/A140506/14059812/",
-            "note": "登戶站步行2分，高CP值義大利麵午間套餐"
-      },
-      {
-            "id": "13291318",
-            "station": "kamiyacho",
-            "station_name": "神谷町駅",
-            "name": "Pizza 4P's",
-            "category": "ピザ",
-            "rating": 3.74,
-            "lunch_text": "￥3,000～￥3,999",
-            "lunch_min": 3000,
-            "lunch_max": 3999,
-            "dinner_text": "￥6,000～￥7,999",
-            "dinner_min": 6000,
-            "dinner_max": 7999,
-            "lat": 35.66147996872123,
-            "lng": 139.74342153420105,
-            "url": "https://tabelog.com/tokyo/A1307/A130704/13291318/",
-            "note": "Tabelog 3.74★｜ピザ"
-      },
-      {
-            "id": "13182678",
-            "station": "kamiyacho",
-            "station_name": "神谷町駅",
-            "name": "SUGALABO",
-            "category": "イノベーティブ、創作料理",
-            "rating": 4.47,
-            "lunch_text": "-",
-            "lunch_min": null,
-            "lunch_max": null,
-            "dinner_text": "￥50,000～￥59,999",
-            "dinner_min": 50000,
-            "dinner_max": 59999,
-            "lat": 35.661057037916194,
-            "lng": 139.74364708303486,
-            "url": "https://tabelog.com/tokyo/A1307/A130704/13182678/",
-            "note": "Tabelog 4.47★｜イノベーティブ、創作料理"
-      },
-      {
-            "id": "13291719",
-            "station": "kamiyacho",
-            "station_name": "神谷町駅",
-            "name": "アラビカ東京 麻布台ヒルズB1店",
-            "category": "カフェ",
-            "rating": 3.57,
-            "lunch_text": "～￥999",
-            "lunch_min": 0,
-            "lunch_max": 999,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1000,
-            "dinner_max": 1999,
-            "lat": 35.66205331872092,
-            "lng": 139.74358253420675,
-            "url": "https://tabelog.com/tokyo/A1307/A130704/13291719/",
-            "note": "Tabelog 3.57★｜カフェ"
-      },
-      {
-            "id": "bf_sj01",
-            "station": "shinjuku",
-            "station_name": "新宿駅",
-            "name": "麺屋武蔵 新宿総本店",
-            "category": "拉麵 / 沾麵",
-            "rating": 3.75,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1000,
-            "lunch_max": 1500,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1000,
-            "dinner_max": 1500,
-            "lat": 35.6942,
-            "lng": 139.6995,
-            "url": "https://tabelog.com/tokyo/A1304/A130401/13001013/",
-            "note": "新宿西口濃厚雙湯頭拉麵元祖"
-      },
-      {
-            "id": "bf_sj03",
-            "station": "shinjuku",
-            "station_name": "新宿駅",
-            "name": "煮干中華そば 鈴蘭 新宿店",
-            "category": "煮干拉麵",
-            "rating": 3.68,
-            "lunch_text": "～￥999",
-            "lunch_min": 850,
-            "lunch_max": 999,
-            "dinner_text": "～￥999",
-            "dinner_min": 850,
-            "dinner_max": 999,
-            "lat": 35.6908,
-            "lng": 139.7071,
-            "url": "https://tabelog.com/tokyo/A1304/A130401/13141187/",
-            "note": "濃厚銀湯小魚乾煮干拉麵"
-      },
-      {
-            "id": "bf_sj04",
-            "station": "shinjuku",
-            "station_name": "新宿駅",
-            "name": "すずや 新宿本店",
-            "category": "炸豬排茶泡飯",
-            "rating": 3.49,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1400,
-            "lunch_max": 1999,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1400,
-            "dinner_max": 1999,
-            "lat": 35.6941,
-            "lng": 139.7011,
-            "url": "https://tabelog.com/tokyo/A1304/A130401/13000094/",
-            "note": "新宿歌舞伎町名物炸豬排茶泡飯"
-      },
-      {
-            "id": "bf_sj05",
-            "station": "shinjuku",
-            "station_name": "新宿駅",
-            "name": "炭火焼肉トラジ 新宿店",
-            "category": "厚切燒肉",
-            "rating": 3.42,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1500,
-            "lunch_max": 1999,
-            "dinner_text": "￥6,000～￥7,999",
-            "dinner_min": 6000,
-            "dinner_max": 7999,
-            "lat": 35.6928,
-            "lng": 139.7025,
-            "url": "https://tabelog.com/tokyo/A1304/A130401/13004245/",
-            "note": "厚切牛舌與午間超值燒肉套餐"
-      },
-      {
-            "id": "bf_un02",
-            "station": "ueno",
-            "station_name": "上野駅",
-            "name": "大統領 支店",
-            "category": "居酒屋 / 馬肉內臟",
-            "rating": 3.55,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1000,
-            "lunch_max": 1999,
-            "dinner_text": "￥2,000～￥2,999",
-            "dinner_min": 2000,
-            "dinner_max": 2999,
-            "lat": 35.7099,
-            "lng": 139.7745,
-            "url": "https://tabelog.com/tokyo/A1311/A131101/13044465/",
-            "note": "上野高架橋下名物居酒屋支店"
-      },
-      {
-            "id": "bf_un03",
-            "station": "ueno",
-            "station_name": "上野駅",
-            "name": "麺屋 武蔵 武骨相傳",
-            "category": "濃厚沾麵",
-            "rating": 3.65,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1000,
-            "lunch_max": 1500,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1000,
-            "dinner_max": 1500,
-            "lat": 35.7121,
-            "lng": 139.7761,
-            "url": "https://tabelog.com/tokyo/A1311/A131101/13127393/",
-            "note": "上野站不忍口厚切厚焙叉燒沾麵"
-      },
-      {
-            "id": "bf_un04",
-            "station": "ueno",
-            "station_name": "上野駅",
-            "name": "上野藪蕎麥 (Yabu Soba)",
-            "category": "江戶蕎麥麵",
-            "rating": 3.69,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1200,
-            "lunch_max": 1999,
-            "dinner_text": "￥2,000～￥2,999",
-            "dinner_min": 2000,
-            "dinner_max": 2999,
-            "lat": 35.7108,
-            "lng": 139.7741,
-            "url": "https://tabelog.com/tokyo/A1311/A131101/13003607/",
-            "note": "明治創業江戶三大蕎麥麵百名店"
-      },
-      {
-            "id": "bf_un05",
-            "station": "ueno",
-            "station_name": "上野駅",
-            "name": "上野精養軒 カフェランドーレ",
-            "category": "經典洋食",
-            "rating": 3.48,
-            "lunch_text": "￥2,000～￥2,999",
-            "lunch_min": 2000,
-            "lunch_max": 2999,
-            "dinner_text": "￥3,000～￥3,999",
-            "dinner_min": 3000,
-            "dinner_max": 3999,
-            "lat": 35.7152,
-            "lng": 139.7735,
-            "url": "https://tabelog.com/tokyo/A1311/A131101/13100650/",
-            "note": "上野恩賜公園內明治維新洋食代表，牛肉燴飯"
-      },
-      {
-            "id": "bf_sb01",
-            "station": "shibuya",
-            "station_name": "渋谷駅",
-            "name": "道玄坂 マンモス (Mammoth)",
-            "category": "濃厚胚芽沾麵",
-            "rating": 3.73,
-            "lunch_text": "～￥999",
-            "lunch_min": 900,
-            "lunch_max": 999,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1000,
-            "dinner_max": 1500,
-            "lat": 35.6585,
-            "lng": 139.6965,
-            "url": "https://tabelog.com/tokyo/A1303/A130301/13123845/",
-            "note": "澀谷道玄坂超濃厚胚芽麵沾麵百名店"
-      },
-      {
-            "id": "bf_sb02",
-            "station": "shibuya",
-            "station_name": "渋谷駅",
-            "name": "喜楽 (Kiraku 渋谷)",
-            "category": "油蔥焦香拉麵 / 炒飯",
-            "rating": 3.76,
-            "lunch_text": "～￥999",
-            "lunch_min": 800,
-            "lunch_max": 999,
-            "dinner_text": "～￥999",
-            "dinner_min": 800,
-            "dinner_max": 999,
-            "lat": 35.6591,
-            "lng": 139.6962,
-            "url": "https://tabelog.com/tokyo/A1303/A130301/13001705/",
-            "note": "昭和27年創業油蔥焦香中華麵百名店"
-      },
-      {
-            "id": "bf_sb03",
-            "station": "shibuya",
-            "station_name": "渋谷駅",
-            "name": "美登利総本店 渋谷店 (Mark City)",
-            "category": "壽司",
-            "rating": 3.52,
-            "lunch_text": "￥2,000～￥2,999",
-            "lunch_min": 2000,
-            "lunch_max": 2999,
-            "dinner_text": "￥3,000～￥3,999",
-            "dinner_min": 3000,
-            "dinner_max": 3999,
-            "lat": 35.6582,
-            "lng": 139.6991,
-            "url": "https://tabelog.com/tokyo/A1303/A130301/13004622/",
-            "note": "澀谷Mark City 4樓超高CP值排隊壽司名店"
-      },
-      {
-            "id": "bf_sb04",
-            "station": "shibuya",
-            "station_name": "渋谷駅",
-            "name": "ゴールドラッシュ 渋谷本店",
-            "category": "美式漢堡排",
-            "rating": 3.51,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1100,
-            "lunch_max": 1800,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1100,
-            "dinner_max": 1800,
-            "lat": 35.6618,
-            "lng": 139.6975,
-            "url": "https://tabelog.com/tokyo/A1303/A130301/13001740/",
-            "note": "手打100%牛肉起司漢堡排老店"
-      },
-      {
-            "id": "bf_sb05",
-            "station": "shibuya",
-            "station_name": "渋谷駅",
-            "name": "茶亭 羽當 (Chatei Hatou)",
-            "category": "炭火手沖咖啡 / 戚風蛋糕",
-            "rating": 3.75,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1000,
-            "lunch_max": 1500,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1000,
-            "dinner_max": 1500,
-            "lat": 35.6601,
-            "lng": 139.7042,
-            "url": "https://tabelog.com/tokyo/A1303/A130301/13001169/",
-            "note": "澀谷宮益坂傳奇手沖咖啡百名店"
-      },
-      {
-            "id": "bf_rp01",
-            "station": "roppongi",
-            "station_name": "六本木駅",
-            "name": "筋肉食堂 六本木店",
-            "category": "高蛋白牛排 / 雞胸肉",
-            "rating": 3.48,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1200,
-            "lunch_max": 1999,
-            "dinner_text": "￥2,000～￥2,999",
-            "dinner_min": 2000,
-            "dinner_max": 2999,
-            "lat": 35.6642,
-            "lng": 139.7321,
-            "url": "https://tabelog.com/tokyo/A1307/A130701/13189918/",
-            "note": "健身愛好者聖地，多汁牛排與雞胸肉定食"
-      },
-      {
-            "id": "bf_rp02",
-            "station": "roppongi",
-            "station_name": "六本木駅",
-            "name": "蒼龍同盟 六本木店",
-            "category": "擔擔麵 / 餃子",
-            "rating": 3.49,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1000,
-            "lunch_max": 1500,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1000,
-            "dinner_max": 1500,
-            "lat": 35.6631,
-            "lng": 139.7335,
-            "url": "https://tabelog.com/tokyo/A1307/A130701/13005391/",
-            "note": "黑胡麻紅麻辣多種風味擔擔麵名店"
-      },
-      {
-            "id": "bf_rp03",
-            "station": "roppongi",
-            "station_name": "六本木駅",
-            "name": "天ぷら 味覚 (Mikaku 六本木)",
-            "category": "天婦羅定食",
-            "rating": 3.65,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1500,
-            "lunch_max": 1999,
-            "dinner_text": "￥8,000～￥9,999",
-            "dinner_min": 8000,
-            "dinner_max": 9999,
-            "lat": 35.6621,
-            "lng": 139.7348,
-            "url": "https://tabelog.com/tokyo/A1307/A130701/13001895/",
-            "note": "六本木高CP值午間天丼與現炸天婦羅"
-      },
-      {
-            "id": "bf_rp04",
-            "station": "roppongi",
-            "station_name": "六本木駅",
-            "name": "松六家 (Matsurokuya)",
-            "category": "和牛黑毛極上牛櫃重",
-            "rating": 3.71,
-            "lunch_text": "￥2,000～￥2,999",
-            "lunch_min": 2200,
-            "lunch_max": 2999,
-            "dinner_text": "￥10,000～￥14,999",
-            "dinner_min": 10000,
-            "dinner_max": 14999,
-            "lat": 35.6645,
-            "lng": 139.7312,
-            "url": "https://tabelog.com/tokyo/A1307/A130701/13038626/",
-            "note": "每日限量超人氣黑毛和牛三吃丼飯"
-      },
-      {
-            "id": "bf_km01",
-            "station": "kamiyacho",
-            "station_name": "神谷町駅",
-            "name": "天ぷら 天朝 (Tencho)",
-            "category": "天婦羅 / 天丼",
-            "rating": 3.62,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1400,
-            "lunch_max": 1999,
-            "dinner_text": "￥8,000～￥9,999",
-            "dinner_min": 8000,
-            "dinner_max": 9999,
-            "lat": 35.6618,
-            "lng": 139.7438,
-            "url": "https://tabelog.com/tokyo/A1307/A130704/13015291/",
-            "note": "神谷町老舖芝麻油香酥脆天丼"
-      },
-      {
-            "id": "bf_km02",
-            "station": "kamiyacho",
-            "station_name": "神谷町駅",
-            "name": "そば処 虎ノ門 砂場",
-            "category": "傳統江戶蕎麥麵",
-            "rating": 3.68,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1200,
-            "lunch_max": 1999,
-            "dinner_text": "￥3,000～￥3,999",
-            "dinner_min": 3000,
-            "dinner_max": 3999,
-            "lat": 35.6681,
-            "lng": 139.7495,
-            "url": "https://tabelog.com/tokyo/A1308/A130802/13002220/",
-            "note": "明治5年創業登錄有形文化財蕎麥百名店"
-      },
-      {
-            "id": "bf_km03",
-            "station": "kamiyacho",
-            "station_name": "神谷町駅",
-            "name": "ピッツェリア ダ・ペッペ ナポリスタカ",
-            "category": "拿坡里星型披薩",
-            "rating": 3.71,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1500,
-            "lunch_max": 1999,
-            "dinner_text": "￥5,000～￥5,999",
-            "dinner_min": 5000,
-            "dinner_max": 5999,
-            "lat": 35.6614,
-            "lng": 139.7443,
-            "url": "https://tabelog.com/tokyo/A1307/A130704/13132502/",
-            "note": "招牌太陽星形起司火腿披薩百名店"
-      },
-      {
-            "id": "bf_ak01",
-            "station": "akabanebashi",
-            "station_name": "赤羽橋駅",
-            "name": "マンチズ バーガー シャック (MUNCH'S BURGER)",
-            "category": "手切熟成牛肉漢堡",
-            "rating": 3.78,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1500,
-            "lunch_max": 1999,
-            "dinner_text": "￥2,000～￥2,999",
-            "dinner_min": 2000,
-            "dinner_max": 2999,
-            "lat": 35.6515,
-            "lng": 139.7492,
-            "url": "https://tabelog.com/tokyo/A1314/A131401/13121869/",
-            "note": "赤羽橋/芝公園圈全美牛排級手切漢堡百名店"
-      },
-      {
-            "id": "bf_ak02",
-            "station": "akabanebashi",
-            "station_name": "赤羽橋駅",
-            "name": "中国飯店 三田店",
-            "category": "北京烤鴨 / 上海料理",
-            "rating": 3.69,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1500,
-            "lunch_max": 1999,
-            "dinner_text": "￥8,000～￥9,999",
-            "dinner_min": 8000,
-            "dinner_max": 9999,
-            "lat": 35.6492,
-            "lng": 139.7445,
-            "url": "https://tabelog.com/tokyo/A1314/A131402/13001655/",
-            "note": "政商名流愛店，午餐黑醋排骨定食超值"
-      },
-      {
-            "id": "bf_ak03",
-            "station": "akabanebashi",
-            "station_name": "赤羽橋駅",
-            "name": "むらまつ (Muramatsu 赤羽橋)",
-            "category": "炸豬排 / 串炸",
-            "rating": 3.52,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1100,
-            "lunch_max": 1500,
-            "dinner_text": "￥2,000～￥2,999",
-            "dinner_min": 2000,
-            "dinner_max": 2999,
-            "lat": 35.6548,
-            "lng": 139.7441,
-            "url": "https://tabelog.com/tokyo/A1314/A131401/13054120/",
-            "note": "赤羽橋站旁平價酥脆豬排與咖哩定食"
-      },
-      {
-            "id": "bf_s3_02",
-            "station": "shinjuku_sanchome",
-            "station_name": "新宿三丁目駅",
-            "name": "伊勢屋 (Iseya 新宿)",
-            "category": "鰻魚飯定食",
-            "rating": 3.61,
-            "lunch_text": "￥2,000～￥2,999",
-            "lunch_min": 2500,
-            "lunch_max": 2999,
-            "dinner_text": "￥4,000～￥4,999",
-            "dinner_min": 4000,
-            "dinner_max": 4999,
-            "lat": 35.6918,
-            "lng": 139.7052,
-            "url": "https://tabelog.com/tokyo/A1304/A130401/13000858/",
-            "note": "新宿三丁目老牌炭烤鰻魚飯定食"
-      },
-      {
-            "id": "bf_s3_03",
-            "station": "shinjuku_sanchome",
-            "station_name": "新宿三丁目駅",
-            "name": "桂花ラーメン 新宿東口駅前店",
-            "category": "熊本拉麵 / 太肉麵",
-            "rating": 3.49,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1000,
-            "lunch_max": 1300,
-            "dinner_text": "￥1,000～￥1,999",
-            "dinner_min": 1000,
-            "dinner_max": 1300,
-            "lat": 35.6919,
-            "lng": 139.7029,
-            "url": "https://tabelog.com/tokyo/A1304/A130401/13000902/",
-            "note": "黑麻油豚骨湯頭配超厚燉五花太肉與生高麗菜"
-      },
-      {
-            "id": "bf_ot01",
-            "station": "otemachi",
-            "station_name": "大手町駅",
-            "name": "肉の万世 新丸ビル店",
-            "category": "黑毛和牛牛排 / 漢堡排",
-            "rating": 3.52,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1500,
-            "lunch_max": 1999,
-            "dinner_text": "￥4,000～￥4,999",
-            "dinner_min": 4000,
-            "dinner_max": 4999,
-            "lat": 35.6835,
-            "lng": 139.7648,
-            "url": "https://tabelog.com/tokyo/A1302/A130201/13038481/",
-            "note": "新丸之內大樓內多汁牛排與排骨麵"
-      },
-      {
-            "id": "bf_ot02",
-            "station": "otemachi",
-            "station_name": "大手町駅",
-            "name": "東京會舘 本館 ロス・アトランティス",
-            "category": "咖哩飯 / 洋食",
-            "rating": 3.65,
-            "lunch_text": "￥2,000～￥2,999",
-            "lunch_min": 2200,
-            "lunch_max": 2999,
-            "dinner_text": "￥5,000～￥5,999",
-            "dinner_min": 5000,
-            "dinner_max": 5999,
-            "lat": 35.6791,
-            "lng": 139.7618,
-            "url": "https://tabelog.com/tokyo/A1301/A130102/13230302/",
-            "note": "經典老巴黎燉牛肉與傳統烘焙甜點"
-      },
-      {
-            "id": "bf_ot03",
-            "station": "otemachi",
-            "station_name": "大手町駅",
-            "name": "鳥どり 丸の内センタービル店",
-            "category": "炭火串燒 / 親子丼",
-            "rating": 3.41,
-            "lunch_text": "～￥999",
-            "lunch_min": 900,
-            "lunch_max": 999,
-            "dinner_text": "￥3,000～￥3,999",
-            "dinner_min": 3000,
-            "dinner_max": 3999,
-            "lat": 35.6848,
-            "lng": 139.7655,
-            "url": "https://tabelog.com/tokyo/A1302/A130201/13031021/",
-            "note": "千元有找的濃厚土雞半熟親子丼午間定食"
-      },
-      {
-            "id": "bf_nb01",
-            "station": "noborito",
-            "station_name": "登戸駅",
-            "name": "らぁめん みどり (Midori 登戸)",
-            "category": "魚介雞白湯拉麵",
-            "rating": 3.51,
-            "lunch_text": "～￥999",
-            "lunch_min": 800,
-            "lunch_max": 999,
-            "dinner_text": "～￥999",
-            "dinner_min": 800,
-            "dinner_max": 999,
-            "lat": 35.6208,
-            "lng": 139.5694,
-            "url": "https://tabelog.com/kanagawa/A1405/A140506/14081234/",
-            "note": "登戶站前濃厚香醇雞白湯拉麵"
-      },
-      {
-            "id": "bf_nb02",
-            "station": "noborito",
-            "station_name": "登戸駅",
-            "name": "鴨と蟹 中華そば 燈 (Tomoshibi)",
-            "category": "鴨蟹鮮湯拉麵",
-            "rating": 3.56,
-            "lunch_text": "～￥999",
-            "lunch_min": 900,
-            "lunch_max": 999,
-            "dinner_text": "～￥999",
-            "dinner_min": 900,
-            "dinner_max": 999,
-            "lat": 35.6175,
-            "lng": 139.5668,
-            "url": "https://tabelog.com/kanagawa/A1405/A140506/14089921/",
-            "note": "登戶向丘遊園圈螃蟹清湯特製叉燒拉麵"
-      },
-      {
-            "id": "bf_nb03",
-            "station": "noborito",
-            "station_name": "登戸駅",
-            "name": "ヒッコリー (Hickory 登戸)",
-            "category": "洋食 / 義式披薩",
-            "rating": 3.48,
-            "lunch_text": "￥1,000～￥1,999",
-            "lunch_min": 1200,
-            "lunch_max": 1600,
-            "dinner_text": "￥2,000～￥2,999",
-            "dinner_min": 2000,
-            "dinner_max": 2999,
-            "lat": 35.6221,
-            "lng": 139.5702,
-            "url": "https://tabelog.com/kanagawa/A1405/A140506/14002345/",
-            "note": "多摩川沿岸老字號溫馨義式洋食餐廳"
-      }
-];
+    // 簡潔料理分類標籤定義（支援前端橫向膠囊篩選與新增視窗快速標籤）
+    const CATEGORIES = [
+      { key: "all",       label: "🍽️ 全部料理",   tag: "",           keywords: [] },
+      { key: "ramen",     label: "🍜 拉麵/沾麵",  tag: "拉麵/沾麵",  keywords: ["拉麵", "沾麵", "中華そば", "擔擔麵", "らーめん", "ソバ"] },
+      { key: "sushi",     label: "🍣 壽司",       tag: "壽司",       keywords: ["壽司", "鮨", "寿司"] },
+      { key: "kaisendon", label: "🐟 海鮮丼/刺身",tag: "海鮮丼",     keywords: ["海鮮丼", "刺身", "鮮魚"] },
+      { key: "yakiniku",  label: "🥩 和牛燒肉",   tag: "和牛燒肉",   keywords: ["燒肉", "焼肉", "內臟燒肉"] },
+      { key: "tongue",    label: "👅 牛舌",       tag: "牛舌",       keywords: ["牛舌", "牛たん", "牛タン"] },
+      { key: "katsu",     label: "🐷 炸豬排",     tag: "炸豬排",     keywords: ["炸豬排", "とんかつ", "豬排"] },
+      { key: "noodle",    label: "🍲 蕎麥/烏龍",  tag: "蕎麥/烏龍",  keywords: ["烏龍", "うどん", "蕎麥", "そば"] },
+      { key: "tempura",   label: "🍤 天婦羅",     tag: "天婦羅",     keywords: ["天婦羅", "天ぷら", "天丼"] },
+      { key: "unagi",     label: "🍱 鰻魚",       tag: "鰻魚",       keywords: ["鰻魚", "うなぎ", "鰻", "ひつまぶし"] },
+      { key: "yakitori",  label: "🍢 燒鳥串燒",   tag: "燒鳥串燒",   keywords: ["燒鳥", "串燒", "烤雞肉串", "焼鳥", "居酒屋", "親子丼", "串炸"] },
+      { key: "sukiyaki",  label: "🥘 壽喜燒/鍋物",tag: "壽喜燒/鍋物",keywords: ["壽喜燒", "鍋物", "涮涮鍋", "しゃぶしゃぶ", "豆乳鍋", "河豚鍋", "火鍋"] },
+      { key: "meat",      label: "🍔 漢堡排/洋食",tag: "漢堡排/洋食",keywords: ["漢堡排", "牛排", "炸牛排", "鐵板燒", "ハンバーグ", "牛櫃重", "漢堡", "洋食", "義大利", "法式", "西班牙", "披薩", "ピザ", "創新", "創作料理", "中餐", "四川", "中華", "烤鴨"] },
+      { key: "curry",     label: "🍛 咖哩",       tag: "咖哩",       keywords: ["咖哩", "カレー"] },
+      { key: "kaiseki",   label: "🍶 懷石割烹",   tag: "懷石割烹",   keywords: ["懷石", "割烹", "日本料理", "和食"] },
+      { key: "cafe",      label: "🍰 甜點/咖啡",  tag: "甜點/咖啡",  keywords: ["甜點", "鬆餅", "聖代", "蛋糕", "洋菓子", "咖啡", "カフェ", "吐司", "糰子", "甘味", "麵包", "烘焙", "早午餐"] }
+    ];
 
-    const STORAGE_KEY = "boy_tabelog_restaurants_v6";
+    // 完整 250 間餐廳資料庫：[id, station, name, category, rating, lunch_text, lMin, lMax, dinner_text, dMin, dMax, lat, lng, urlPath, note]
+    // 前 193 筆為原始 193 間完整保留（已修正 shinjuku3 與 0,0 座標）；第 194~250 筆為新增 57 間各站精選分類名店
+    const RAW_RESTAURANTS = [
+      // === 原始 193 間完整保留 ===
+      ["sj_29terrace","shinjuku","29 Terrace (29テラス)","和牛燒肉 / 蔥包牛舌",3.56,"-",null,null,"￥6,000～￥7,999",6000,7999,35.68343,139.70129,"tokyo/A1304/A130401/13263152/","新宿南口/代代木旁超人氣厚切蔥包牛舌、A5黑毛和牛燒肉"],
+      ["tk01","tokyo","六厘舎 (東京駅一番街)","沾麵 / 拉麵",3.78,"￥1,000～￥1,999",1000,1999,"￥1,000～￥1,999",1000,1999,35.67985,139.76762,"tokyo/A1302/A130201/13093047/","東京車站地下街超人氣濃厚魚介沾麵，百名店"],
+      ["tk02","tokyo","日本橋 蕎ノ字","天婦羅",4.16,"￥20,000～￥29,999",20000,29999,"￥20,000～￥29,999",20000,29999,35.6841,139.7782,"tokyo/A1302/A130202/13200815/","東京車站日本橋圈 4.0+ 傳奇江戶前天婦羅"],
+      ["tk03","tokyo","すきやばし次郎 本店","江戶前壽司",4.08,"￥50,000～￥59,999",50000,59999,"￥50,000～￥59,999",50000,59999,35.67285,139.76382,"tokyo/A1301/A130101/13002260/","銀座/東京站周邊殿堂級壽司神店"],
+      ["tk04","tokyo","根室花まる KITTE丸の内店","迴轉壽司",3.63,"￥2,000～￥2,999",2000,2999,"￥3,000～￥3,999",3000,3999,35.67968,139.76485,"tokyo/A1302/A130201/13153814/","丸之內南口 KITTE 5樓，北海道直送高CP值迴轉壽司"],
+      ["tk05","tokyo","つじ半 日本橋本店","海鮮丼",3.76,"￥1,000～￥1,999",1200,1999,"￥1,000～￥1,999",1200,1999,35.68152,139.77125,"tokyo/A1302/A130202/13146590/","八重洲北口步行4分，珠寶盒海鮮丼配鯛魚高湯茶泡飯"],
+      ["tk06","tokyo","とんかつ まい泉 グランスタ東京店","炸豬排 / 便當",3.38,"￥1,000～￥1,999",1000,1999,"￥1,000～￥1,999",1000,1999,35.6814,139.7665,"tokyo/A1302/A130201/13114628/","東京站改札內穩定好店，搭新幹線前買豬排三明治首選"],
+      ["tk07","tokyo","矢場とん 東京駅グランスタ八重洲店","味噌炸豬排",3.45,"￥1,000～￥1,999",1200,1999,"￥2,000～￥2,999",2000,2999,35.6808,139.7685,"tokyo/A1302/A130201/13019676/","名古屋名物濃厚紅味噌炸豬排，八重洲地下街直結"],
+      ["sj01","shinjuku","匠 達広","江戶前壽司",4.04,"￥15,000～￥19,999",15000,19999,"￥30,000～￥39,999",30000,39999,35.6881,139.7082,"tokyo/A1304/A130402/13091668/","新宿御苑側 4.0+ 頂級壽司神店"],
+      ["sj02","shinjuku","風雲児 新宿本店","雞白湯魚介沾麵",3.77,"～￥999",900,999,"￥1,000～￥1,999",1000,1200,35.68715,139.69688,"tokyo/A1304/A130401/13044091/","新宿南口步行5分，極濃雞白湯魚介沾麵百名店"],
+      ["sj03","shinjuku","うどん 慎","手打烏龍麵",3.74,"￥1,000～￥1,999",1000,1999,"￥1,000～￥1,999",1000,1999,35.6865,139.6975,"tokyo/A1304/A130401/13125862/","現切現煮天婦羅烏龍麵百名店"],
+      ["sj04","shinjuku","豚珍館","炸豬排",3.71,"～￥999",950,999,"￥1,000～￥1,999",1000,1999,35.6912,139.6968,"tokyo/A1304/A130401/13000809/","新宿西口平價炸豬排百名店，白飯豬肉湯免費續"],
+      ["sj05","shinjuku","牛かつ もと村 新宿南口店","炸牛排",3.46,"￥1,000～￥1,999",1500,1999,"￥2,000～￥2,999",2000,2999,35.68852,139.70195,"tokyo/A1304/A130401/13181931/","個人石板現煎炸牛排配山藥泥麥飯"],
+      ["un01","ueno","とん八亭","炸豬排",4.02,"￥2,000～￥2,999",2200,2999,"￥3,000～￥3,999",3000,3999,35.7098,139.7731,"tokyo/A1311/A131101/13003590/","上野南側 4.0+ 傳奇炸豬排神店，低溫慢炸極致柔嫩"],
+      ["un02","ueno","ぽん多 本家","炸豬排 / 洋食",3.86,"￥4,000～￥4,999",4000,4999,"￥5,000～￥5,999",5000,5999,35.7085,139.7728,"tokyo/A1311/A131101/13003587/","明治38年創業炸豬排發源老舖，Tabelog 銅賞"],
+      ["un03","ueno","鴨to葱 上野御徒町本店","鴨肉拉麵",3.75,"￥1,000～￥1,999",1000,1999,"￥1,000～￥1,999",1000,1999,35.7091,139.7752,"tokyo/A1311/A131101/13210394/","純粹鴨、蔥、水熬煮清湯拉麵，上野排隊百名店"],
+      ["un04","ueno","肉の大山 上野店","炸肉餅 / 立食牛排",3.49,"～￥999",500,999,"￥2,000～￥2,999",2000,2999,35.7102,139.7746,"tokyo/A1311/A131101/13016729/","阿美橫丁肉舖直營，現炸和牛可樂餅必吃"],
+      ["sb01","shibuya","くろ﨑","江戶前壽司",4.12,"-",null,null,"￥40,000～￥49,999",40000,49999,35.6612,139.7068,"tokyo/A1303/A130301/13179724/","澀谷 4.0+ 壽司傳奇名店，Tabelog 銀賞常客"],
+      ["sb02","shibuya","挽肉と米 渋谷店","炭火漢堡排",3.69,"￥1,000～￥1,999",1600,1999,"￥1,000～￥1,999",1600,1999,35.65952,139.69785,"tokyo/A1303/A130301/13257261/","道玄坂人氣現烤炭火漢堡排配羽釜白飯"],
+      ["sb03","shibuya","極味や 渋谷パルコ店","鐵板漢堡排",3.47,"￥1,000～￥1,999",1300,1999,"￥2,000～￥2,999",2000,2999,35.66205,139.69875,"tokyo/A1303/A130301/13241010/","澀谷 PARCO B1，鐵板現煎伊萬里牛漢堡排"],
+      ["km01","kamiyacho","鮨 さいとう","江戶前壽司",4.45,"￥20,000～￥29,999",20000,29999,"￥30,000～￥39,999",30000,39999,35.6645,139.7428,"tokyo/A1308/A130802/13015251/","日本壽司最高殿堂之一，Tabelog 金賞"],
+      ["km02","kamiyacho","ダ・ペッペ ナポリスタカ 神谷町店","披薩 / 義大利麵",3.76,"￥1,000～￥1,999",1400,1999,"￥5,000～￥5,999",5000,5999,35.6618,139.7445,"tokyo/A1307/A130704/13132145/","神谷町站2號出口旁，招牌星形披薩超人氣百名店"],
+      ["km03","kamiyacho","麺処 若武者 麻布台ヒルズ店","拉麵",3.42,"￥1,000～￥1,999",1000,1500,"￥1,000～￥1,999",1000,1500,35.6608,139.7441,"tokyo/A1307/A130701/13291580/","神谷町直結麻布台之丘，極上會津地雞鹽味拉麵"],
+      ["13196420","tokyo","東麻布 天本","壽司",4.63,"-",null,null,"￥20,000～￥29,999",20000,29999,35.657318,139.743456,"tw/tokyo/A1314/A131401/13196420/","Tabelog 4.63★｜壽司"],
+      ["ab02","akabanebashi","五代目 野田岩 麻布飯倉本店","鰻魚料理",3.88,"￥5,000～￥5,999",5000,5999,"￥8,000～￥9,999",8000,9999,35.6575,139.7442,"tokyo/A1307/A130704/13001265/","東京鐵塔旁創業200年米其林老字號天然鰻魚名店"],
+      ["ab03","akabanebashi","中国料理 萬力屋 東麻布店","中華料理 / 擔擔麵",3.38,"～￥999",900,999,"￥1,000～￥1,999",1000,1999,35.6548,139.7441,"tokyo/A1314/A131401/13045612/","赤羽橋站旁平價大份量黑芝麻擔擔麵與鐵鍋餃子"],
+      ["rp01","roppongi","日本料理 龍吟","日本料理 / 懷石",4.28,"-",null,null,"￥50,000～￥59,999",50000,59999,35.6668,139.7342,"tokyo/A1307/A130701/13000858/","六本木周邊殿堂級米其林三星日本料理名店"],
+      ["rp02","roppongi","入鹿TOKYO 六本木店","拉麵",3.87,"￥1,000～￥1,999",1300,1999,"￥1,000～￥1,999",1300,1999,35.6648,139.7325,"tokyo/A1307/A130701/13264070/","中城對面，牛肝菌松露醬油四重高湯拉麵百名店"],
+      ["rp03","roppongi","肉割烹 格之進F","牛排 / 漢堡排",3.48,"￥1,000～￥1,999",1500,1999,"￥8,000～￥9,999",8000,9999,35.6642,139.7355,"tokyo/A1307/A130701/13171358/","六本木泉花園，門崎熟成黑毛和牛炭烤與多汁漢堡排"],
+      ["s301","shinjuku3","鳥茂","串燒 / 內臟料理",4.02,"-",null,null,"￥10,000～￥14,999",10000,14999,35.6888,139.7022,"tokyo/A1304/A130401/13001067/","昭和24年創業頂級炭火串燒神店"],
+      ["s302","shinjuku3","王ろじ","炸豬排 / 咖哩",3.66,"￥1,000～￥1,999",1200,1999,"￥1,000～￥1,999",1200,1999,35.6914,139.7042,"tokyo/A1304/A130401/13000857/","大正十年創業百年老店，招牌炸豬排咖哩丼百名店"],
+      ["s303","shinjuku3","モンスナック","咖哩飯",3.48,"～￥999",850,999,"～￥999",850,999,35.6912,139.7058,"tokyo/A1304/A130401/13274291/","新宿地下街老字號平價濃郁湯咖哩，千元有找"],
+      ["ot01","otemachi","アマン東京 ザ・ラウンジ","義法料理 / 甜點",4.05,"￥8,000～￥9,999",8000,9999,"￥15,000～￥19,999",15000,19999,35.6872,139.7635,"tokyo/A1302/A130201/13176100/","大手町塔頂級高空景觀餐廳，奢華料理與下午茶"],
+      ["ot02","otemachi","港屋2 (星のや東京)","蕎麥麵",3.66,"￥1,000～￥1,999",1100,1500,"￥1,000～￥1,999",1100,1500,35.6881,139.7652,"tokyo/A1302/A130201/13199859/","星野東京地下，招牌牛肉辣油沾蕎麥麵百名店"],
+      ["ot03","otemachi","大手町ラーメン","拉麵",3.46,"～￥999",800,999,"～￥999",800,999,35.6868,139.7661,"tokyo/A1302/A130201/13011317/","大手町站直結地下街，滿滿叉燒與高麗菜的傳統人氣味噌拉麵"],
+      ["nb01","noborito","蓮爾 登戸店","拉麵 / 二郎系",3.65,"-",null,null,"～￥999",850,999,35.6202,139.5695,"kanagawa/A1405/A140506/14002622/","登戶站南口步行5分，全日本最粗極太麵傳奇拉麵百名店"],
+      ["nb02","noborito","中華そば 幸大","拉麵",3.54,"～￥999",800,999,"～￥999",800,999,35.6195,139.5718,"kanagawa/A1405/A140506/14078426/","登戶站旁清爽雞清湯與特製叉燒醬油拉麵名店"],
+      ["nb03","noborito","そば処 柏屋 登戸店","蕎麥麵",3.47,"￥1,000～￥1,999",1000,1500,"￥1,000～￥1,999",1000,1999,35.6212,139.5705,"kanagawa/A1405/A140506/14001923/","登戶站前老字號手工江戶前蕎麥麵與現炸鴨肉天婦羅"],
+      ["my01","mukogaoka","セテュヌ ボンニデー","麵包 / 烘焙",3.79,"～￥999",500,999,"-",null,null,35.6185,139.5662,"kanagawa/A1405/A140506/14052953/","北口步行3分，藤子不二雄博物館沿線知名烘焙麵包百名店"],
+      ["my02","mukogaoka","讃岐うどん 宗","手打烏龍麵",3.73,"～￥999",750,999,"￥1,000～￥1,999",1000,1500,35.6172,139.5645,"kanagawa/A1405/A140506/14046487/","南口步行5分，正統香川手打讚岐烏龍麵百名店"],
+      ["my03","mukogaoka","カレーハウス ピアット","咖哩飯",3.44,"～￥999",800,999,"￥1,000～￥1,999",1000,1500,35.6168,139.5651,"kanagawa/A1405/A140506/14008129/","向丘遊園站前濃郁歐風牛肉熟成咖哩，在地高評價好店"],
+      ["kg01","komagome","鮨 惠","江戶前壽司",4.04,"￥10,000～￥14,999",10000,14999,"￥20,000～￥29,999",20000,29999,35.7372,139.7485,"tokyo/A1323/A132301/13214589/","駒込東口隱密頂級熟成江戶前壽司名店"],
+      ["kg02","komagome","ガンコンらーめん","拉麵",3.72,"￥1,000～￥1,999",1000,1500,"￥1,000～￥1,999",1000,1500,35.7358,139.7455,"tokyo/A1323/A132301/13155823/","駒込站步行5分，純天然鮮美雞清湯醬油拉麵百名店"],
+      ["kg03","komagome","アルプス洋菓子店 駒込店","蛋糕 / 洋菓子",3.46,"～￥999",500,999,"～￥999",500,999,35.7368,139.7468,"tokyo/A1323/A132301/13012423/","六義園散步必訪，創立於昭和34年老字號蒙布朗洋菓子店"],
+      ["od01","odaiba","鉄板焼 浜木綿 (希爾頓台場)","黑毛和牛鐵板燒",4.03,"￥8,000～￥9,999",8000,9999,"￥20,000～￥29,999",20000,29999,35.6288,139.7708,"tokyo/A1313/A131306/13009941/","台場希爾頓內，眺望彩虹大橋與東京灣景極致鐵板燒神店"],
+      ["od02","odaiba","ラーメン玉 お台場店","濃厚魚介拉麵",3.62,"￥1,000～￥1,999",1000,1500,"￥1,000～￥1,999",1000,1500,35.6298,139.7718,"tokyo/A1313/A131306/13194888/","AQUA CiTY 東京拉麵國技館內，柴魚拉麵百名店"],
+      ["od03","odaiba","Eggs 'n Things お台場店","鬆餅 / 早午餐",3.48,"￥1,000～￥1,999",1500,1999,"￥2,000～￥2,999",2000,2999,35.6292,139.7722,"tokyo/A1313/A131306/13171372/","露台面對東京灣自由女神像，超澎湃火山鮮奶油鬆餅"],
+      ["dm01","dome","八五 (Chuka Soba Hachigo)","法式清湯拉麵",4.15,"￥1,000～￥1,999",1200,1999,"￥1,000～￥1,999",1200,1999,35.7018,139.7542,"tokyo/A1301/A130101/13228602/","巨蛋周邊米其林一星法式生火腿高湯頂級拉麵神店"],
+      ["dm02","dome","かつ吉 水道橋店","炸豬排",3.76,"￥2,000～￥2,999",2200,2999,"￥3,000～￥3,999",3000,3999,35.7032,139.7538,"tokyo/A1310/A131003/13000171/","巨蛋南側昭和37年創業炸豬排百名店，肉質酥嫩"],
+      ["dm03","dome","叙々苑 東京ドームシティラクーア店","和牛燒肉",3.44,"￥3,000～￥3,999",3000,3999,"￥10,000～￥14,999",10000,14999,35.7062,139.7525,"tokyo/A1310/A131004/13003882/","巨蛋 LaQua 9樓景觀座位，午間高品質燒肉套餐"],
+      ["sd01","shiodome","趙楊","四川料理",4.18,"￥15,000～￥19,999",15000,19999,"￥30,000～￥39,999",30000,39999,35.6645,139.7578,"tokyo/A1301/A130103/13174246/","正統川菜最高峰，Tabelog 銀賞傳奇名店"],
+      ["sd02","shiodome","新橋 纏 (Matoi)","拉麵",3.79,"～￥999",900,999,"￥1,000～￥1,999",1000,1500,35.6668,139.7572,"tokyo/A1301/A130103/13156974/","烏森小巷排隊百名店，比目魚乾熬製濃郁煮干醬油拉麵"],
+      ["sd03","shiodome","むさしや","洋食 / 蛋包飯",3.48,"～￥999",850,999,"～￥999",850,999,35.6662,139.7585,"tokyo/A1301/A130103/13023938/","新橋站前大樓昭和百年洋食老舖，招牌黃金蛋包飯"],
+      ["hn01","haneda","鮨 魯山 羽田空港店","江戶前壽司",4.02,"￥6,000～￥7,999",6000,7999,"￥10,000～￥14,999",10000,14999,35.5452,139.7685,"tokyo/A1315/A131504/13117978/","第3航廈國際線江戶小路，出境前品嚐4.0星江戶前握壽司"],
+      ["hn02","haneda","Hitoshinaya (ひとしなや)","和食 / 粥 / 烤魚定食",3.66,"￥1,000～￥1,999",1200,1999,"￥1,000～￥1,999",1200,1999,35.5492,139.7845,"tokyo/A1315/A131504/13171193/","第1航廈北翼2樓，以一汁一菜純粹高湯聞名的百名店"],
+      ["hn03","haneda","焼肉 Champion 羽田空港店","和牛燒肉 / 丼飯",3.49,"￥1,000～￥1,999",1500,1999,"￥3,000～￥3,999",3000,3999,35.5448,139.7682,"tokyo/A1315/A131504/13117983/","第3航廈出境前享用A5黑毛和牛燒肉卷與現烤和牛燒肉丼"],
+      ["17011166","tokyo","片折","日本料理",4.7,"-",null,null,"￥20,000～￥29,999",20000,29999,36.569572,136.667999,"tw/ishikawa/A1701/A170101/17011166/","Tabelog 4.7★｜日本料理"],
+      ["13136847","tokyo","新橋 星野","日本料理",4.67,"-",null,null,"￥20,000～￥29,999",20000,29999,35.662433,139.75532,"tw/tokyo/A1314/A131401/13136847/","Tabelog 4.67★｜日本料理"],
+      ["13249117","tokyo","aca","西班牙料理",4.66,"-",null,null,"￥20,000～￥29,999",20000,29999,35.686873,139.772353,"tw/tokyo/A1302/A130202/13249117/","Tabelog 4.66★｜西班牙料理"],
+      ["13018162","tokyo","日本橋蠣殼町 Sugita","壽司",4.65,"-",null,null,"￥20,000～￥29,999",20000,29999,35.681938,139.784929,"tw/tokyo/A1302/A130204/13018162/","Tabelog 4.65★｜壽司"],
+      ["13243463","tokyo","蒼","創新,法式料理",4.64,"-",null,null,"￥20,000～￥29,999",20000,29999,35.660044,139.725267,"tw/tokyo/A1307/A130701/13243463/","Tabelog 4.64★｜創新,法式料理"],
+      ["26030764","tokyo","道人","日本料理",4.64,"-",null,null,"￥20,000～￥29,999",20000,29999,35.011776,135.775496,"tw/kyoto/A2601/A260301/26030764/","Tabelog 4.64★｜日本料理"],
+      ["22037788","tokyo","成生","天婦羅",4.63,"-",null,null,"￥20,000～￥29,999",20000,29999,34.985018,138.376171,"tw/shizuoka/A2201/A220101/22037788/","Tabelog 4.63★｜天婦羅"],
+      ["26033124","tokyo","仁修樓","中餐",4.62,"-",null,null,"￥20,000～￥29,999",20000,29999,35.052282,135.743995,"tw/kyoto/A2601/A260503/26033124/","Tabelog 4.62★｜中餐"],
+      ["13300481","tokyo","鮨 一幸","壽司",4.62,"-",null,null,"￥20,000～￥29,999",20000,29999,35.669502,139.76548,"tw/tokyo/A1301/A130101/13300481/","Tabelog 4.62★｜壽司"],
+      ["13015251","tokyo","壽司 Saitou","壽司",4.61,"-",null,null,"￥20,000～￥29,999",20000,29999,35.665384,139.739597,"tw/tokyo/A1308/A130802/13015251/","Tabelog 4.61★｜壽司"],
+      ["27095402","tokyo","鮨 三心","壽司",4.61,"-",null,null,"￥20,000～￥29,999",20000,29999,34.678157,135.518293,"tw/osaka/A2701/A270204/27095402/","Tabelog 4.61★｜壽司"],
+      ["13200949","tokyo","銀座 Shinohara","日本料理",4.6,"-",null,null,"￥20,000～￥29,999",20000,29999,35.672974,139.767871,"tw/tokyo/A1301/A130101/13200949/","Tabelog 4.6★｜日本料理"],
+      ["20004238","tokyo","柚木元","日本料理",4.6,"-",null,null,"￥20,000～￥29,999",20000,29999,35.519482,137.823037,"tw/nagano/A2006/A200603/20004238/","Tabelog 4.6★｜日本料理"],
+      ["24012212","tokyo","Komada","壽司",4.6,"-",null,null,"￥20,000～￥29,999",20000,29999,34.494634,136.71523,"tw/mie/A2403/A240301/24012212/","Tabelog 4.6★｜壽司"],
+      ["13188186","tokyo","鮨 Arai","壽司",4.59,"-",null,null,"￥20,000～￥29,999",20000,29999,35.668081,139.762723,"tw/tokyo/A1301/A130101/13188186/","Tabelog 4.59★｜壽司"],
+      ["13205298","tokyo","茶禪華","中餐",4.59,"-",null,null,"￥20,000～￥29,999",20000,29999,35.649582,139.728372,"tw/tokyo/A1307/A130703/13205298/","Tabelog 4.59★｜中餐"],
+      ["40000415","tokyo","近松","壽司",4.59,"-",null,null,"￥20,000～￥29,999",20000,29999,33.580817,130.393425,"tw/fukuoka/A4001/A400104/40000415/","Tabelog 4.59★｜壽司"],
+      ["13124391","tokyo","松川","日本料理",4.58,"-",null,null,"￥20,000～￥29,999",20000,29999,35.667471,139.7424,"tw/tokyo/A1307/A130701/13124391/","Tabelog 4.58★｜日本料理"],
+      ["28057663","tokyo","北野坂 木下","義大利料理",4.58,"-",null,null,"￥20,000～￥29,999",20000,29999,34.697277,135.191665,"tw/hyogo/A2801/A280101/28057663/","Tabelog 4.58★｜義大利料理"],
+      ["22019273","tokyo","瞬","鰻魚,蓋飯",4.58,"-",null,null,"￥20,000～￥29,999",20000,29999,35.031839,138.39087,"tw/shizuoka/A2201/A220101/22019273/","Tabelog 4.58★｜鰻魚,蓋飯"],
+      ["22006811","tokyo","溫石","日本料理",4.57,"-",null,null,"￥20,000～￥29,999",20000,29999,34.860359,138.322166,"tw/shizuoka/A2203/A220301/22006811/","Tabelog 4.57★｜日本料理"],
+      ["23080047","tokyo","橦木町 Shimizu","日本料理",4.57,"-",null,null,"￥20,000～￥29,999",20000,29999,35.180255,136.919094,"tw/aichi/A2301/A230104/23080047/","Tabelog 4.57★｜日本料理"],
+      ["20028578","tokyo","Restaurant Naz","創新",4.57,"-",null,null,"￥20,000～￥29,999",20000,29999,36.334477,138.534719,"tw/nagano/A2003/A200301/20028578/","Tabelog 4.57★｜創新"],
+      ["17015162","tokyo","木佐貫","日本料理",4.57,"-",null,null,"￥20,000～￥29,999",20000,29999,36.569257,136.669891,"tw/ishikawa/A1701/A170101/17015162/","Tabelog 4.57★｜日本料理"],
+      ["13266251","tokyo","Kasahara","烤雞肉串",4.56,"-",null,null,"￥20,000～￥29,999",20000,29999,35.706394,139.739816,"tw/tokyo/A1309/A130905/13266251/","Tabelog 4.56★｜烤雞肉串"],
+      ["16009727","tokyo","L'evo","創新,創作料理,郷土料理",4.56,"-",null,null,"￥20,000～￥29,999",20000,29999,36.401419,136.99439,"tw/toyama/A1605/A160502/16009727/","Tabelog 4.56★｜創新,創作料理,郷土料理"],
+      ["26016833","tokyo","飯田","日本料理",4.56,"-",null,null,"￥20,000～￥29,999",20000,29999,35.009797,135.764762,"tw/kyoto/A2601/A260202/26016833/","Tabelog 4.56★｜日本料理"],
+      ["40000721","tokyo","天壽司 京町店","壽司",4.55,"-",null,null,"￥20,000～￥29,999",20000,29999,33.885252,130.88443,"tw/fukuoka/A4004/A400401/40000721/","Tabelog 4.55★｜壽司"],
+      ["13252991","tokyo","島津","壽司",4.55,"-",null,null,"￥20,000～￥29,999",20000,29999,35.643175,139.733648,"tw/tokyo/A1316/A131602/13252991/","Tabelog 4.55★｜壽司"],
+      ["22039375","tokyo","馳走西健一","法式料理,創新",4.55,"-",null,null,"￥20,000～￥29,999",20000,29999,34.855367,138.306327,"tw/shizuoka/A2203/A220301/22039375/","Tabelog 4.55★｜法式料理,創新"],
+      ["27001286","tokyo","本湖月","日本料理",4.55,"-",null,null,"￥20,000～￥29,999",20000,29999,34.668223,135.502539,"tw/osaka/A2701/A270202/27001286/","Tabelog 4.55★｜日本料理"],
+      ["40034544","tokyo","鮨 Sakai","壽司",4.54,"-",null,null,"￥20,000～￥29,999",20000,29999,33.591068,130.405517,"tw/fukuoka/A4001/A400103/40034544/","Tabelog 4.54★｜壽司"],
+      ["13224635","tokyo","赤坂 Raimon","燒肉,內臟類",4.54,"-",null,null,"￥20,000～￥29,999",20000,29999,35.676878,139.736253,"tw/tokyo/A1308/A130801/13224635/","Tabelog 4.54★｜燒肉,內臟類"],
+      ["26012136","tokyo","緒方","日本料理",4.54,"-",null,null,"￥20,000～￥29,999",20000,29999,35.003198,135.756079,"tw/kyoto/A2601/A260201/26012136/","Tabelog 4.54★｜日本料理"],
+      ["26040349","tokyo","德ㇵ本也","日本料理",4.54,"-",null,null,"￥20,000～￥29,999",20000,29999,35.036467,135.763002,"tw/kyoto/A2601/A260503/26040349/","Tabelog 4.54★｜日本料理"],
+      ["19012518","tokyo","TSUSHIMI","法式料理,創新",4.54,"-",null,null,"￥20,000～￥29,999",20000,29999,35.6805,139.7662,"tw/yamanashi/A1902/A190202/19012518/","Tabelog 4.54★｜法式料理,創新"],
+      ["22027669","tokyo","日本料理FUJI","日本料理",4.53,"-",null,null,"￥20,000～￥29,999",20000,29999,34.974762,138.391753,"tw/shizuoka/A2201/A220101/22027669/","Tabelog 4.53★｜日本料理"],
+      ["34023887","tokyo","馳走 啐啄一十 ","日本料理",4.53,"-",null,null,"￥20,000～￥29,999",20000,29999,34.38748,132.460819,"tw/hiroshima/A3401/A340117/34023887/","Tabelog 4.53★｜日本料理"],
+      ["13245499","tokyo","赤坂Ogino","日本料理",4.53,"-",null,null,"￥20,000～￥29,999",20000,29999,35.670898,139.735289,"tw/tokyo/A1308/A130801/13245499/","Tabelog 4.53★｜日本料理"],
+      ["25004102","tokyo","Uran","鰻魚",4.53,"-",null,null,"￥20,000～￥29,999",20000,29999,35.011606,135.859036,"tw/shiga/A2501/A250101/25004102/","Tabelog 4.53★｜鰻魚"],
+      ["13159567","tokyo","Quintessence","法式料理",4.52,"-",null,null,"￥20,000～￥29,999",20000,29999,35.623946,139.733118,"tw/tokyo/A1314/A131405/13159567/","Tabelog 4.52★｜法式料理"],
+      ["13219857","tokyo","壽司 Namba 日比谷","壽司",4.52,"-",null,null,"￥20,000～￥29,999",20000,29999,35.674188,139.759395,"tw/tokyo/A1301/A130102/13219857/","Tabelog 4.52★｜壽司"],
+      ["13185763","tokyo","Takiya","天婦羅",4.52,"-",null,null,"￥20,000～￥29,999",20000,29999,35.655601,139.734776,"tw/tokyo/A1307/A130702/13185763/","Tabelog 4.52★｜天婦羅"],
+      ["13246316","tokyo","Trace","創新,法式料理",4.52,"-",null,null,"￥20,000～￥29,999",20000,29999,35.6505,139.7292,"tw/tokyo/A1307/A130703/13246316/","Tabelog 4.52★｜創新,法式料理"],
+      ["41006295","tokyo","katecuore","義大利料理",4.52,"-",null,null,"￥20,000～￥29,999",20000,29999,33.273738,129.883724,"tw/saga/A4102/A410202/41006295/","Tabelog 4.52★｜義大利料理"],
+      ["26026316","tokyo","富小路 Yamgishi","日本料理",4.51,"-",null,null,"￥20,000～￥29,999",20000,29999,35.006794,135.764884,"tw/kyoto/A2601/A260201/26026316/","Tabelog 4.51★｜日本料理"],
+      ["13001043","tokyo","澤田","壽司",4.51,"-",null,null,"￥20,000～￥29,999",20000,29999,35.67047,139.765253,"tw/tokyo/A1301/A130101/13001043/","Tabelog 4.51★｜壽司"],
+      ["13042204","tokyo","三谷","壽司",4.51,"-",null,null,"￥20,000～￥29,999",20000,29999,35.687544,139.727882,"tw/tokyo/A1309/A130902/13042204/","Tabelog 4.51★｜壽司"],
+      ["13259485","tokyo","末冨","日本料理",4.51,"-",null,null,"￥20,000～￥29,999",20000,29999,35.6598,139.7085,"tw/tokyo/A1303/A130301/13259485/","Tabelog 4.51★｜日本料理"],
+      ["26013373","tokyo","啐啄 Tsukamoto","日本料理",4.51,"-",null,null,"￥20,000～￥29,999",20000,29999,35.001894,135.774314,"tw/kyoto/A2601/A260301/26013373/","Tabelog 4.51★｜日本料理"],
+      ["13225413","tokyo","Toshi","中餐,創新",4.5,"-",null,null,"￥20,000～￥29,999",20000,29999,35.665261,139.732482,"tw/tokyo/A1307/A130701/13225413/","Tabelog 4.5★｜中餐,創新"],
+      ["13241432","tokyo","壽司 良月","壽司",4.5,"-",null,null,"￥20,000～￥29,999",20000,29999,35.6453,139.722194,"tw/tokyo/A1303/A130302/13241432/","Tabelog 4.5★｜壽司"],
+      ["1073214","tokyo","壽司 Miyakawa","壽司",4.5,"-",null,null,"￥20,000～￥29,999",20000,29999,43.062134,141.317621,"tw/hokkaido/A0101/A010105/1073214/","Tabelog 4.5★｜壽司"],
+      ["13295095","tokyo","CHIUnE","創新,法式料理",4.5,"-",null,null,"￥20,000～￥29,999",20000,29999,35.679389,139.737656,"tw/tokyo/A1308/A130801/13295095/","Tabelog 4.5★｜創新,法式料理"],
+      ["5006041","tokyo","鮨駒","壽司",4.5,"-",null,null,"￥20,000～￥29,999",20000,29999,39.392722,140.047563,"tw/akita/A0506/A050601/5006041/","Tabelog 4.5★｜壽司"],
+      ["42008914","tokyo","pesceco","創新",4.5,"-",null,null,"￥20,000～￥29,999",20000,29999,32.798383,130.369098,"tw/nagasaki/A4203/A420302/42008914/","Tabelog 4.5★｜創新"],
+      ["13238306","tokyo","鮨 Hashimoto","壽司",4.49,"-",null,null,"￥20,000～￥29,999",20000,29999,35.672939,139.774478,"tw/tokyo/A1313/A131301/13238306/","Tabelog 4.49★｜壽司"],
+      ["12038574","tokyo","PRESENTE Sugi","義大利料理,創新",4.49,"-",null,null,"￥20,000～￥29,999",20000,29999,35.712713,140.242214,"tw/chiba/A1204/A120402/12038574/","Tabelog 4.49★｜義大利料理,創新"],
+      ["13256878","tokyo","SEZANNE","法式料理",4.49,"-",null,null,"￥20,000～￥29,999",20000,29999,35.678097,139.766879,"tw/tokyo/A1302/A130201/13256878/","Tabelog 4.49★｜法式料理"],
+      ["add_sj01","shinjuku","とんかつ 豚珍館","炸豬排",3.71,"～￥999",950,999,"￥1,000～￥1,999",1000,1999,35.6912,139.6968,"tokyo/A1304/A130401/13000809/","新宿西口炸豬排百名店，平價高CP值"],
+      ["add_sj03","shinjuku","タカノフルーツパーラー 新宿本店","水果聖代 / 咖啡廳",3.68,"￥2,000～￥2,999",2000,2999,"￥2,000～￥2,999",2000,2999,35.6915,139.7019,"tokyo/A1304/A130401/13000798/","新宿東口頂級水果甜點老舖"],
+      ["add_sj04","shinjuku","アカシア 新宿本店","洋食 / 高麗菜捲",3.55,"￥1,000～￥1,999",1000,1999,"￥1,000～￥1,999",1000,1999,35.6924,139.7018,"tokyo/A1304/A130401/13000912/","招牌奶油燉高麗菜捲配咖哩飯"],
+      ["add_sj05","shinjuku","麺屋 海神 新宿店","鮮魚鹽味拉麵",3.66,"￥1,000～￥1,999",1000,1500,"￥1,000～￥1,999",1000,1500,35.6897,139.7021,"tokyo/A1304/A130401/13095619/","新宿東南口30秒，清爽鮮魚骨熬製鹽味拉麵配烤飯糰"],
+      ["add_sj06","shinjuku","叙々苑 新宿小田急ハルク店","燒肉",3.36,"￥3,000～￥3,999",3000,3999,"￥10,000～￥14,999",10000,14999,35.6921,139.6991,"tokyo/A1304/A130401/13004192/","超值午間燒肉套餐"],
+      ["add_s3_01","shinjuku3","金色不如帰 新宿御苑本店","蛤蜊醬油拉麵",3.91,"￥1,000～￥1,999",1200,1999,"￥1,000～￥1,999",1200,1999,35.6884,139.7105,"tokyo/A1304/A130402/13222172/","米其林一星黃金蛤蜊松露拉麵"],
+      ["add_s3_02","shinjuku3","ハンバーグ ウィル (Hamburg Will)","岩中豚漢堡排",3.72,"￥1,000～￥1,999",1300,1999,"￥2,000～￥2,999",2000,2999,35.6895,139.7112,"tokyo/A1304/A130402/13041176/","100%岩手縣岩中豚多汁漢堡排百名店"],
+      ["add_s3_03","shinjuku3","王ろじ (Oroji)","炸豬排 / 豬排咖哩",3.7,"￥1,000～￥1,999",1200,1999,"￥1,000～￥1,999",1200,1999,35.6914,139.7042,"tokyo/A1304/A130401/13000860/","大正10年創業百年老店，招牌とん丼(炸豬排咖哩碗)"],
+      ["add_s3_04","shinjuku3","カフェ アリエ (Cafe Aaliya)","法式吐司 / 咖啡",3.64,"￥1,000～￥1,999",1000,1999,"￥1,000～￥1,999",1000,1999,35.6902,139.7051,"tokyo/A1304/A130401/13000698/","新宿三丁目站B2出口旁，外酥內嫩鐵板法式吐司名店"],
+      ["add_s3_05","shinjuku3","追分だんご本舗 新宿本店","日式糰子 / 甘味處",3.71,"～￥999",500,999,"～￥999",500,999,35.6908,139.7058,"tokyo/A1304/A130401/13000825/","手作現搗麻糬糰子與刨冰百名店"],
+      ["add_s3_06","shinjuku3","ホルモン千葉 新宿店","鐵板內臟燒肉",3.58,"-",null,null,"￥4,000～￥4,999",4000,4999,35.6911,139.7069,"tokyo/A1304/A130401/13224812/","專人代烤濃郁黑醬汁鐵板內臟加烏龍麵"],
+      ["add_un01","ueno","とんかつ山家 御徒町店","炸豬排",3.74,"～￥999",850,999,"～￥999",850,999,35.7082,139.7745,"tokyo/A1311/A131101/13142429/","千元有找的超厚切炸豬排百名店"],
+      ["add_un03","ueno","デリー (Delhi) 上野店","印度/喀什米爾咖哩",3.77,"￥1,000～￥1,999",1100,1600,"￥1,000～￥1,999",1100,1999,35.7069,139.7718,"tokyo/A1311/A131101/13003605/","昭和31年創業咖哩百名店，必點極辛香醇喀什米爾咖哩"],
+      ["add_un05","ueno","みはし 上野本店","紅豆餡蜜 / 甜點",3.76,"～￥999",700,999,"～￥999",700,999,35.7115,139.7738,"tokyo/A1311/A131101/13003509/","上野公園前傳統甘味處百名店"],
+      ["add_un06","ueno","大統領 本店","居酒屋 / 串燒",3.48,"￥1,000～￥1,999",1000,1999,"￥2,000～￥2,999",2000,2999,35.7106,139.7749,"tokyo/A1311/A131101/13016742/","鐵道下超人氣大眾串燒酒場"],
+      ["add_sb02","shibuya","中華ソバ 櫻坂","柴魚雞湯拉麵",3.74,"～￥999",900,999,"￥1,000～￥1,999",1000,1500,35.6558,139.7024,"tokyo/A1303/A130301/13025517/","澀谷櫻丘町拉麵百名店"],
+      ["add_sb03","shibuya","瑞兆 (Zuicho)","炸豬排蓋飯",3.67,"￥1,000～￥1,999",1000,1500,"￥1,000～￥1,999",1000,1500,35.6624,139.6948,"tokyo/A1303/A130301/13012649/","滑嫩半熟蛋鋪底的酥脆豬排丼"],
+      ["add_sb04","shibuya","とんかつ 檍 渋谷店","林SPF炸豬排",3.57,"￥1,000～￥1,999",1300,1999,"￥2,000～￥2,999",2000,2999,35.6584,139.7045,"tokyo/A1303/A130301/13275810/","厚切多汁炸豬排配岩鹽"],
+      ["add_sb06","shibuya","ムルギー (Murugi)","熟成咖哩飯",3.68,"￥1,000～￥1,999",1100,1500,"-",null,null,35.6582,139.6961,"tokyo/A1303/A130301/13001737/","道玄坂老字號咖哩百名店"],
+      ["add_km01","kamiyacho","ナポリスタカ 神谷町店 (Napolistaca)","窯烤披薩 / 義式",3.71,"￥1,000～￥1,999",1500,1999,"￥4,000～￥4,999",4000,4999,35.6615,139.7442,"tokyo/A1307/A130704/13132502/","神谷町超人氣星形窯烤拿坡里披薩百名店"],
+      ["add_km02","kamiyacho","めん徳 二代目 つじ田 神谷町店","濃厚魚介沾麵",3.56,"￥1,000～￥1,999",1000,1500,"￥1,000～￥1,999",1000,1500,35.6632,139.7455,"tokyo/A1307/A130704/13044572/","神谷町站步行1分，經典酸橘黑七味豚骨魚介沾麵"],
+      ["add_km03","kamiyacho","博多天ぷら たかお UMU麻布台ヒルズ店","天婦羅定食",3.48,"￥1,000～￥1,999",1600,1999,"￥2,000～￥2,999",2000,2999,35.6608,139.7405,"tokyo/A1307/A130704/13290852/","麻布台Hills內現炸天婦羅，明太子與淺漬免費吃到飽"],
+      ["add_km04","kamiyacho","パーラー矢澤 麻布台ヒルズ","和牛漢堡排 / 洋食",3.52,"￥2,000～￥2,999",2000,2999,"￥3,000～￥3,999",3000,3999,35.6605,139.7408,"tokyo/A1307/A130704/13291401/","燒肉名店矢澤打造的大人兒童餐與漢堡排"],
+      ["add_km05","kamiyacho","カレーの店 ガン爺 (Ganjii)","香料咖哩飯",3.66,"￥1,000～￥1,999",1000,1300,"-",null,null,35.6641,139.7462,"tokyo/A1307/A130704/13125105/","神谷町上班族排隊辛口香料咖哩百名店"],
+      ["add_ak02","akabanebashi","東京 芝 とうふ屋うかい","豆腐懷石料理",3.75,"￥6,000～￥7,999",6000,7999,"￥10,000～￥14,999",10000,14999,35.6575,139.7458,"tokyo/A1314/A131401/13019665/","東京鐵塔正下方絕美日式庭園，招牌豆水豆腐與油揚"],
+      ["add_ak03","akabanebashi","タワシタ (Tawashita)","洋食 / 漢堡排",3.59,"￥1,000～￥1,999",1200,1999,"￥4,000～￥4,999",4000,4999,35.6552,139.7441,"tokyo/A1314/A131401/13163285/","赤羽橋步行2分，人氣手打漢堡排與紅酒燉牛肉定食"],
+      ["add_ak04","akabanebashi","ラーメン二郎 三田本店","二郎系拉麵",3.76,"～￥999",700,999,"-",null,null,35.6481,139.7418,"tokyo/A1314/A131402/13006051/","赤羽橋/三田步行圈，全日本二郎系拉麵朝聖總本店"],
+      ["add_ak05","akabanebashi","ル・パン・コティディアン 芝公園店","早午餐 / 烘焙咖啡",3.55,"￥1,000～￥1,999",1200,1999,"￥2,000～￥2,999",2000,2999,35.6581,139.7485,"tokyo/A1314/A131401/13120823/","芝公園綠意旁比利時有機烘焙早午餐，可遠眺東京鐵塔"],
+      ["add_rp01","roppongi","入鹿TOKYO 六本木 (Iruca Tokyo)","松露牛肝菌拉麵",3.88,"￥1,000～￥1,999",1200,1999,"￥1,000～￥1,999",1200,1999,35.6648,139.7305,"tokyo/A1307/A130701/13263975/","東京Midtown對面，雞、豬、伊勢龍蝦與貝類四重湯頭百名店"],
+      ["add_rp02","roppongi","AFURI 六本木交差点","柚子鹽拉麵",3.46,"￥1,000～￥1,999",1100,1600,"￥1,000～￥1,999",1100,1600,35.6625,139.7318,"tokyo/A1307/A130701/13158214/","六本木十字路口清爽柚子鹽拉麵與炙燒叉燒飯"],
+      ["add_rp03","roppongi","豚組 食堂 (六本木ヒルズ)","炸豬排定食",3.59,"￥1,000～￥1,999",1400,1999,"￥2,000～￥2,999",2000,2999,35.6604,139.7292,"tokyo/A1307/A130701/13154565/","六本木Hills地下二樓，嚴選日本銘柄豚多汁炸豬排"],
+      ["add_rp04","roppongi","つるとんたん 六本木店","大碗創意烏龍麵",3.52,"￥1,000～￥1,999",1200,1999,"￥2,000～￥2,999",2000,2999,35.6635,139.7342,"tokyo/A1307/A130701/13019555/","免費加麵至3球，明太子奶油烏龍麵與大豆皮烏龍麵"],
+      ["add_rp05","roppongi","焼肉 冷麺 ユッチャン。 六本木本店","燒肉 / 葛切冷麵",3.69,"￥2,000～￥2,999",2000,2999,"￥8,000～￥9,999",8000,9999,35.6631,139.7302,"tokyo/A1307/A130701/13230232/","夏威夷名店登陸六本木，必點冰沙高湯葛切冷麵與LA牛小排"],
+      ["add_ot01","otemachi","リトル小岩井 (Little Koiwai)","拿坡里義大利麵",3.71,"～￥999",650,999,"～￥999",650,999,35.6862,139.7645,"tokyo/A1302/A130201/13000043/","大手町地下街直結，千元有找的昭和鐵板炒義大利麵百名店"],
+      ["add_ot02","otemachi","港屋2 (Minatoya 2)","辣油肉蕎麥麵",3.64,"￥1,000～￥1,999",1000,1200,"-",null,null,35.6885,139.7632,"tokyo/A1302/A130201/13198747/","大手町星野東京一樓，傳奇立食辣油冷肉蕎麥麵"],
+      ["add_ot03","otemachi","つじ田 大手町店","豚骨魚介沾麵",3.55,"￥1,000～￥1,999",1000,1500,"￥1,000～￥1,999",1000,1500,35.6868,139.7651,"tokyo/A1302/A130201/13199502/","大手町OOTEMORI地下二樓，濃郁雙湯頭沾麵"],
+      ["add_ot04","otemachi","とんかつ まるや 大手町店","炸豬排定食",3.46,"～￥999",800,999,"￥1,000～￥1,999",1000,1999,35.6859,139.7641,"tokyo/A1302/A130201/13143628/","大手町上班族最愛，¥800起炸里肌豬排定食配蜆湯"],
+      ["add_ot05","otemachi","インデアンカレー 大手町店","日式咖哩飯",3.56,"～￥999",880,999,"～￥999",880,999,35.6865,139.7638,"tokyo/A1302/A130201/13200125/","上菜只要10秒的濃厚微辣高麗菜泡菜咖哩"],
+      ["add_nb01","noborito","FUGLEN COFFEE ROASTERS 登戸","北歐烘焙咖啡 / 鬆餅",3.58,"～￥999",600,999,"～￥999",600,999,35.6212,139.5698,"kanagawa/A1405/A140506/14076895/","登戶站步行2分多摩川畔，挪威奧斯陸知名咖啡烘豆所與棕色起司鬆餅"],
+      ["add_nb02","noborito","鮮藍坊 (Shenlanfang 登戸)","四川麻婆豆腐 / 擔擔麵",3.56,"￥1,000～￥1,999",1000,1500,"￥2,000～￥2,999",2000,2999,35.6195,139.5682,"kanagawa/A1405/A140506/14062145/","登戶站周邊高評價正宗四川料理，必點石鍋麻婆豆腐午間定食"],
+      ["add_nb03","noborito","中華そば 昂 (Subarashiki)","醬油拉麵 / 沾麵",3.52,"～￥999",850,999,"～￥999",850,999,35.6205,139.5691,"kanagawa/A1405/A140506/14078512/","登戶站北口步行2分，香醇雞湯與魚介手揉麵拉麵"],
+      ["add_nb04","noborito","焼肉 慶 (Kei 登戸)","黑毛和牛燒肉",3.45,"￥1,000～￥1,999",1200,1999,"￥4,000～￥4,999",4000,4999,35.6198,139.5705,"kanagawa/A1405/A140506/14051230/","登戶站前人氣燒肉店，午間超值和牛燒肉定食"],
+      ["add_nb05","noborito","とんかつ 鉄 (Tetsu)","熟成炸豬排",3.54,"￥1,000～￥1,999",1200,1999,"￥2,000～￥2,999",2000,2999,35.6182,139.5655,"kanagawa/A1405/A140506/14068921/","登戶/向丘遊園步行圈，金黃酥脆熟成豬排定食"],
+      ["add_nb06","noborito","ポルタ モンターレ (Porta Montare)","義大利麵 / 窯烤披薩",3.43,"￥1,000～￥1,999",1200,1999,"￥3,000～￥3,999",3000,3999,35.6201,139.5688,"kanagawa/A1405/A140506/14059812/","登戶站步行2分，高CP值義大利麵午間套餐"],
+      ["13291318","kamiyacho","Pizza 4P's","ピザ",3.74,"￥3,000～￥3,999",3000,3999,"￥6,000～￥7,999",6000,7999,35.66148,139.743422,"tokyo/A1307/A130704/13291318/","Tabelog 3.74★｜ピザ"],
+      ["13182678","kamiyacho","SUGALABO","イノベーティブ、創作料理",4.47,"-",null,null,"￥50,000～￥59,999",50000,59999,35.661057,139.743647,"tokyo/A1307/A130704/13182678/","Tabelog 4.47★｜イノベーティブ、創作料理"],
+      ["13291719","kamiyacho","アラビカ東京 麻布台ヒルズB1店","カフェ",3.57,"～￥999",0,999,"￥1,000～￥1,999",1000,1999,35.662053,139.743583,"tokyo/A1307/A130704/13291719/","Tabelog 3.57★｜カフェ"],
+      ["bf_sj01","shinjuku","麺屋武蔵 新宿総本店","拉麵 / 沾麵",3.75,"￥1,000～￥1,999",1000,1500,"￥1,000～￥1,999",1000,1500,35.6942,139.6995,"tokyo/A1304/A130401/13001013/","新宿西口濃厚雙湯頭拉麵元祖"],
+      ["bf_sj03","shinjuku","煮干中華そば 鈴蘭 新宿店","煮干拉麵",3.68,"～￥999",850,999,"～￥999",850,999,35.6908,139.7071,"tokyo/A1304/A130401/13141187/","濃厚銀湯小魚乾煮干拉麵"],
+      ["bf_sj04","shinjuku","すずや 新宿本店","炸豬排茶泡飯",3.49,"￥1,000～￥1,999",1400,1999,"￥1,000～￥1,999",1400,1999,35.6941,139.7011,"tokyo/A1304/A130401/13000094/","新宿歌舞伎町名物炸豬排茶泡飯"],
+      ["bf_sj05","shinjuku","炭火焼肉トラジ 新宿店","厚切燒肉",3.42,"￥1,000～￥1,999",1500,1999,"￥6,000～￥7,999",6000,7999,35.6928,139.7025,"tokyo/A1304/A130401/13004245/","厚切牛舌與午間超值燒肉套餐"],
+      ["bf_un02","ueno","大統領 支店","居酒屋 / 馬肉內臟",3.55,"￥1,000～￥1,999",1000,1999,"￥2,000～￥2,999",2000,2999,35.7099,139.7745,"tokyo/A1311/A131101/13044465/","上野高架橋下名物居酒屋支店"],
+      ["bf_un03","ueno","麺屋 武蔵 武骨相傳","濃厚沾麵",3.65,"￥1,000～￥1,999",1000,1500,"￥1,000～￥1,999",1000,1500,35.7121,139.7761,"tokyo/A1311/A131101/13127393/","上野站不忍口厚切厚焙叉燒沾麵"],
+      ["bf_un04","ueno","上野藪蕎麥 (Yabu Soba)","江戶蕎麥麵",3.69,"￥1,000～￥1,999",1200,1999,"￥2,000～￥2,999",2000,2999,35.7108,139.7741,"tokyo/A1311/A131101/13003607/","明治創業江戶三大蕎麥麵百名店"],
+      ["bf_un05","ueno","上野精養軒 カフェランドーレ","經典洋食",3.48,"￥2,000～￥2,999",2000,2999,"￥3,000～￥3,999",3000,3999,35.7152,139.7735,"tokyo/A1311/A131101/13100650/","上野恩賜公園內明治維新洋食代表，牛肉燴飯"],
+      ["bf_sb01","shibuya","道玄坂 マンモス (Mammoth)","濃厚胚芽沾麵",3.73,"～￥999",900,999,"￥1,000～￥1,999",1000,1500,35.6585,139.6965,"tokyo/A1303/A130301/13123845/","澀谷道玄坂超濃厚胚芽麵沾麵百名店"],
+      ["bf_sb02","shibuya","喜楽 (Kiraku 渋谷)","油蔥焦香拉麵 / 炒飯",3.76,"～￥999",800,999,"～￥999",800,999,35.6591,139.6962,"tokyo/A1303/A130301/13001705/","昭和27年創業油蔥焦香中華麵百名店"],
+      ["bf_sb03","shibuya","美登利総本店 渋谷店 (Mark City)","壽司",3.52,"￥2,000～￥2,999",2000,2999,"￥3,000～￥3,999",3000,3999,35.6582,139.6991,"tokyo/A1303/A130301/13004622/","澀谷Mark City 4樓超高CP值排隊壽司名店"],
+      ["bf_sb04","shibuya","ゴールドラッシュ 渋谷本店","美式漢堡排",3.51,"￥1,000～￥1,999",1100,1800,"￥1,000～￥1,999",1100,1800,35.6618,139.6975,"tokyo/A1303/A130301/13001740/","手打100%牛肉起司漢堡排老店"],
+      ["bf_sb05","shibuya","茶亭 羽當 (Chatei Hatou)","炭火手沖咖啡 / 戚風蛋糕",3.75,"￥1,000～￥1,999",1000,1500,"￥1,000～￥1,999",1000,1500,35.6601,139.7042,"tokyo/A1303/A130301/13001169/","澀谷宮益坂傳奇手沖咖啡百名店"],
+      ["bf_rp01","roppongi","筋肉食堂 六本木店","高蛋白牛排 / 雞胸肉",3.48,"￥1,000～￥1,999",1200,1999,"￥2,000～￥2,999",2000,2999,35.6642,139.7321,"tokyo/A1307/A130701/13189918/","健身愛好者聖地，多汁牛排與雞胸肉定食"],
+      ["bf_rp02","roppongi","蒼龍同盟 六本木店","擔擔麵 / 餃子",3.49,"￥1,000～￥1,999",1000,1500,"￥1,000～￥1,999",1000,1500,35.6631,139.7335,"tokyo/A1307/A130701/13005391/","黑胡麻紅麻辣多種風味擔擔麵名店"],
+      ["bf_rp03","roppongi","天ぷら 味覚 (Mikaku 六本木)","天婦羅定食",3.65,"￥1,000～￥1,999",1500,1999,"￥8,000～￥9,999",8000,9999,35.6621,139.7348,"tokyo/A1307/A130701/13001895/","六本木高CP值午間天丼與現炸天婦羅"],
+      ["bf_rp04","roppongi","松六家 (Matsurokuya)","和牛黑毛極上牛櫃重",3.71,"￥2,000～￥2,999",2200,2999,"￥10,000～￥14,999",10000,14999,35.6645,139.7312,"tokyo/A1307/A130701/13038626/","每日限量超人氣黑毛和牛三吃丼飯"],
+      ["bf_km01","kamiyacho","天ぷら 天朝 (Tencho)","天婦羅 / 天丼",3.62,"￥1,000～￥1,999",1400,1999,"￥8,000～￥9,999",8000,9999,35.6618,139.7438,"tokyo/A1307/A130704/13015291/","神谷町老舖芝麻油香酥脆天丼"],
+      ["bf_km02","kamiyacho","そば処 虎ノ門 砂場","傳統江戶蕎麥麵",3.68,"￥1,000～￥1,999",1200,1999,"￥3,000～￥3,999",3000,3999,35.6681,139.7495,"tokyo/A1308/A130802/13002220/","明治5年創業登錄有形文化財蕎麥百名店"],
+      ["bf_km03","kamiyacho","ピッツェリア ダ・ペッペ ナポリスタカ","拿坡里星型披薩",3.71,"￥1,000～￥1,999",1500,1999,"￥5,000～￥5,999",5000,5999,35.6614,139.7443,"tokyo/A1307/A130704/13132502/","招牌太陽星形起司火腿披薩百名店"],
+      ["bf_ak01","akabanebashi","マンチズ バーガー シャック (MUNCH'S BURGER)","手切熟成牛肉漢堡",3.78,"￥1,000～￥1,999",1500,1999,"￥2,000～￥2,999",2000,2999,35.6515,139.7492,"tokyo/A1314/A131401/13121869/","赤羽橋/芝公園圈全美牛排級手切漢堡百名店"],
+      ["bf_ak02","akabanebashi","中国飯店 三田店","北京烤鴨 / 上海料理",3.69,"￥1,000～￥1,999",1500,1999,"￥8,000～￥9,999",8000,9999,35.6492,139.7445,"tokyo/A1314/A131402/13001655/","政商名流愛店，午餐黑醋排骨定食超值"],
+      ["bf_ak03","akabanebashi","むらまつ (Muramatsu 赤羽橋)","炸豬排 / 串炸",3.52,"￥1,000～￥1,999",1100,1500,"￥2,000～￥2,999",2000,2999,35.6548,139.7441,"tokyo/A1314/A131401/13054120/","赤羽橋站旁平價酥脆豬排與咖哩定食"],
+      ["bf_s3_02","shinjuku3","伊勢屋 (Iseya 新宿)","鰻魚飯定食",3.61,"￥2,000～￥2,999",2500,2999,"￥4,000～￥4,999",4000,4999,35.6918,139.7052,"tokyo/A1304/A130401/13000858/","新宿三丁目老牌炭烤鰻魚飯定食"],
+      ["bf_s3_03","shinjuku3","桂花ラーメン 新宿東口駅前店","熊本拉麵 / 太肉麵",3.49,"￥1,000～￥1,999",1000,1300,"￥1,000～￥1,999",1000,1300,35.6919,139.7029,"tokyo/A1304/A130401/13000902/","黑麻油豚骨湯頭配超厚燉五花太肉與生高麗菜"],
+      ["bf_ot01","otemachi","肉の万世 新丸ビル店","黑毛和牛牛排 / 漢堡排",3.52,"￥1,000～￥1,999",1500,1999,"￥4,000～￥4,999",4000,4999,35.6835,139.7648,"tokyo/A1302/A130201/13038481/","新丸之內大樓內多汁牛排與排骨麵"],
+      ["bf_ot02","otemachi","東京會舘 本館 ロス・アトランティス","咖哩飯 / 洋食",3.65,"￥2,000～￥2,999",2200,2999,"￥5,000～￥5,999",5000,5999,35.6791,139.7618,"tokyo/A1301/A130102/13230302/","經典老巴黎燉牛肉與傳統烘焙甜點"],
+      ["bf_ot03","otemachi","鳥どり 丸の内センタービル店","炭火串燒 / 親子丼",3.41,"～￥999",900,999,"￥3,000～￥3,999",3000,3999,35.6848,139.7655,"tokyo/A1302/A130201/13031021/","千元有找的濃厚土雞半熟親子丼午間定食"],
+      ["bf_nb01","noborito","らぁめん みどり (Midori 登戸)","魚介雞白湯拉麵",3.51,"～￥999",800,999,"～￥999",800,999,35.6208,139.5694,"kanagawa/A1405/A140506/14081234/","登戶站前濃厚香醇雞白湯拉麵"],
+      ["bf_nb02","noborito","鴨と蟹 中華そば 燈 (Tomoshibi)","鴨蟹鮮湯拉麵",3.56,"～￥999",900,999,"～￥999",900,999,35.6175,139.5668,"kanagawa/A1405/A140506/14089921/","登戶向丘遊園圈螃蟹清湯特製叉燒拉麵"],
+      ["bf_nb03","noborito","ヒッコリー (Hickory 登戸)","洋食 / 義式披薩",3.48,"￥1,000～￥1,999",1200,1600,"￥2,000～￥2,999",2000,2999,35.6221,139.5702,"kanagawa/A1405/A140506/14002345/","多摩川沿岸老字號溫馨義式洋食餐廳"],
+
+      // === 新增 57 間各站精選分類名店 (牛舌、海鮮丼/刺身、蕎麥/烏龍、炸豬排、壽喜燒/鍋物、燒鳥、鰻魚、天婦羅) ===
+      ["new_01","tokyo","牛たん炭焼 利久 東京駅グランスタ店","牛舌",3.55,"￥2,000～￥2,999",2000,2999,"￥2,000～￥2,999",2000,2999,35.6815,139.7668,"tokyo/A1302/A130201/13141911/","東京站改札內B1，仙台炭火厚切極牛舌定食名店"],
+      ["new_02","tokyo","仙台牛タン 荒 東京駅店","牛舌",3.54,"￥2,000～￥2,999",2000,2999,"￥3,000～￥3,999",3000,3999,35.6802,139.7681,"tokyo/A1302/A130201/13260120/","八重洲地下街直結，炭火現烤多汁厚切牛舌配麥飯牛尾湯"],
+      ["new_03","tokyo","伊達の牛たん本舗 KITTEグランシェ店","牛舌",3.49,"￥2,000～￥2,999",2000,2999,"￥2,000～￥2,999",2000,2999,35.6797,139.7651,"tokyo/A1302/A130201/13153820/","丸之內南口KITTE B1，仙台名物芯たん極厚牛舌"],
+      ["new_04","tokyo","羽田市場 グランスタ東京店","海鮮丼 / 海鮮刺身",3.56,"￥1,000～￥1,999",1500,1999,"￥3,000～￥3,999",3000,3999,35.6811,139.7663,"tokyo/A1302/A130201/13249012/","東京站內產地空運超新鮮生魚片刺身與特上海鮮丼"],
+      ["new_05","tokyo","香川一福 東京駅店","蕎麥/烏龍",3.66,"～￥999",750,999,"￥1,000～￥1,999",1000,1500,35.6825,139.7691,"tokyo/A1302/A130201/13225012/","東京站日本橋口旁，米其林必比登推介咖哩烏龍麵與高湯讚岐烏龍麵"],
+      ["new_06","tokyo","とんかつ 寿々木 (東京駅一番街)","炸豬排",3.55,"￥1,000～￥1,999",1400,1999,"￥2,000～￥2,999",2000,2999,35.6799,139.7679,"tokyo/A1302/A130201/13128015/","東京站一番街にっぽんグルメ街道，熟成三元豚厚切炸豬排"],
+      ["new_07","tokyo","人形町今半 丸ビル店","壽喜燒/鍋物",3.72,"￥5,000～￥5,999",5000,5999,"￥15,000～￥19,999",15000,19999,35.6812,139.7639,"tokyo/A1302/A130201/13000312/","東京站正對面丸之內大樓35樓，明治創業殿堂級黑毛和牛壽喜燒"],
+      ["new_08","tokyo","焼鳥 瀬尾 (東京ステーションホテル)","燒鳥串燒",3.74,"￥4,000～￥4,999",4000,4999,"￥10,000～￥14,999",10000,14999,35.6809,139.7658,"tokyo/A1302/A130201/13147492/","東京車站大飯店B1，備長炭火直烤比內地雞燒鳥百名店"],
+      ["new_09","tokyo","ひつまぶし名古屋 備長 丸ビル店","鰻魚",3.61,"￥4,000～￥4,999",4000,4999,"￥5,000～￥5,999",5000,5999,35.6814,139.7641,"tokyo/A1302/A130201/13004098/","丸ビル6樓，正宗備長炭直火香脆名古屋烤鰻魚三吃"],
+      ["new_10","otemachi","牛たん けやき 大手町店","牛舌",3.48,"￥1,000～￥1,999",1600,1999,"￥2,000～￥2,999",2000,2999,35.6861,139.7649,"tokyo/A1302/A130201/13250112/","大手町地下街直結，特製熟成厚切牛舌定食"],
+      ["new_11","otemachi","魚河岸 日本一 大手町店","海鮮丼 / 海鮮刺身",3.46,"￥1,000～￥1,999",1000,1500,"￥2,000～￥2,999",2000,2999,35.6866,139.7639,"tokyo/A1302/A130201/13160215/","大手町Metro地下街，豐洲直送新鮮海鮮丼與生魚片刺身"],
+      ["new_12","otemachi","野らぼー 大手町店","蕎麥/烏龍",3.54,"～￥999",800,999,"￥2,000～￥2,999",2000,2999,35.6855,139.7652,"tokyo/A1302/A130201/13010512/","大手町第一大樓B1，香川讚岐手打粗烏龍麵與天婦羅"],
+      ["new_13","shiodome","おにやんま 新橋店","蕎麥/烏龍",3.76,"～￥999",550,999,"～￥999",550,999,35.6661,139.7571,"tokyo/A1301/A130103/13163740/","新橋站步行2分，現炸雞天婦羅配讚岐烏龍麵百名店"],
+      ["new_14","shiodome","とんかつ 檍 新橋店","炸豬排",3.74,"￥1,000～￥1,999",1300,1999,"￥2,000～￥2,999",2000,2999,35.6665,139.7581,"tokyo/A1301/A130103/13215012/","新橋駅前大樓1號館，林SPF極上厚切炸豬排百名店"],
+      ["new_15","shiodome","魚金 本店 (新橋)","海鮮丼 / 海鮮刺身",3.71,"-",null,null,"￥4,000～￥4,999",4000,4999,35.6667,139.7568,"tokyo/A1301/A130103/13007092/","新橋烏森口傳奇海鮮居酒屋，必點超澎湃六點盛海鮮刺身拼盤"],
+      ["new_16","shiodome","牛たん 荒 新橋店","牛舌",3.56,"￥2,000～￥2,999",2000,2999,"￥3,000～￥3,999",3000,3999,35.6659,139.7575,"tokyo/A1301/A130103/13112015/","新橋站步行3分，炭火直烤超厚切仙台牛舌配山藥泥麥飯"],
+      ["new_17","shiodome","うなぎ おおくぼ 新橋","鰻魚",3.62,"￥2,000～￥2,999",2200,2999,"￥4,000～￥4,999",4000,4999,35.6652,139.7565,"tokyo/A1301/A130103/13180123/","新橋高CP值現烤江戶前鰻魚重名店"],
+      ["new_18","kamiyacho","とんかつ まるや 神谷町店","炸豬排",3.51,"～￥999",800,999,"￥1,000～￥1,999",1000,1999,35.6626,139.7448,"tokyo/A1307/A130704/13151205/","神谷町站直結，外酥內嫩高CP值厚切里肌炸豬排定食"],
+      ["new_19","kamiyacho","ومع 麻布台ヒルズ 海鮮処 根室杉山水産","海鮮丼 / 海鮮刺身",3.53,"￥1,000～￥1,999",1500,1999,"￥3,000～￥3,999",3000,3999,35.6611,139.7412,"tokyo/A1307/A130704/13291510/","神谷町麻布台之丘市場內，北海道直送極上海鮮丼與刺身"],
+      ["new_20","kamiyacho","野田岩 麻布台ヒルズ店","鰻魚",3.64,"￥4,000～￥4,999",4000,4999,"￥8,000～￥9,999",8000,9999,35.6609,139.7409,"tokyo/A1307/A130704/13291455/","神谷町直結麻布台之丘，百年鰻魚名門野田岩分店"],
+      ["new_21","dome","うどん 丸香 (Maruka)","蕎麥/烏龍",3.94,"～￥999",600,999,"￥1,000～￥1,999",1000,1500,35.6968,139.7582,"tokyo/A1310/A131003/13000629/","東京巨蛋/水道橋步行圈，全東京第一名讚岐烏龍麵傳奇百名店"],
+      ["new_22","dome","牛たん炭焼 利久 東京ドームシティ店","牛舌",3.46,"￥2,000～￥2,999",2000,2999,"￥2,000～￥2,999",2000,2999,35.7048,139.7528,"tokyo/A1310/A131004/13195012/","東京巨蛋城MEETS PORT內，看球賽前後必吃厚切炭烤牛舌"],
+      ["new_23","dome","菩提樹 (Bodaiju 水道橋)","炸豬排 / 漢堡排",3.58,"￥1,000～￥1,999",1400,1999,"￥2,000～￥2,999",2000,2999,35.7035,139.7541,"tokyo/A1310/A131003/13000172/","東京巨蛋正對面，A5黑毛和牛漢堡排與酥脆炸豬排老舖"],
+      ["new_24","dome","焼鳥 ハレツバメ 水道橋店","燒鳥串燒 / 壽喜燒/鍋物",3.48,"￥1,000～￥1,999",1100,1500,"￥3,000～￥3,999",3000,3999,35.7025,139.7535,"tokyo/A1310/A131003/13231015/","巨蛋旁炭火燒鳥串燒與濃郁鴨肉高湯鍋物、蒸籠蕎麥麵"],
+      ["new_25","akabanebashi","総本家 更科堀井 麻布十番本店","蕎麥/烏龍",3.75,"￥1,000～￥1,999",1200,1999,"￥3,000～￥3,999",3000,3999,35.6558,139.7362,"tokyo/A1307/A130702/13001224/","赤羽橋/麻布圈創業230年老字號，雪白純粹更科蕎麥麵百名店"],
+      ["new_26","akabanebashi","天ぷら 横田 (麻布/赤羽橋圈)","天婦羅",3.82,"￥5,000～￥5,999",5000,5999,"￥15,000～￥19,999",15000,19999,35.6555,139.7375,"tokyo/A1307/A130702/13001678/","米其林一星老字號江戶前天婦羅百名店"],
+      ["new_27","akabanebashi","焼鳥 今井 (麻布/赤羽橋圈)","燒鳥串燒",3.78,"-",null,null,"￥10,000～￥14,999",10000,14999,35.6561,139.7381,"tokyo/A1307/A130702/13225015/","赤羽橋周邊頂級備長炭燒鳥百名店"],
+      ["new_28","ueno","みなとや食品 本店 (阿美橫丁)","海鮮丼 / 海鮮刺身",3.59,"～￥999",700,999,"￥1,000～￥1,999",1000,1500,35.7095,139.7744,"tokyo/A1311/A131101/13095670/","上野阿美橫丁超人氣街頭平價爆量鮪魚鮭魚卵海鮮丼"],
+      ["new_29","ueno","牛たん炭焼 利久 パルコヤ上野店","牛舌",3.48,"￥2,000～￥2,999",2000,2999,"￥2,000～￥2,999",2000,2999,35.7076,139.7732,"tokyo/A1311/A131101/13214812/","PARCO_ya上野6樓，仙台厚切炭烤牛舌與牛舌握壽司"],
+      ["new_30","ueno","韻松亭 (Inshotei 上野公園)","壽喜燒/鍋物 / 懷石割烹",3.76,"￥3,000～￥3,999",3000,3999,"￥8,000～￥9,999",8000,9999,35.7145,139.7731,"tokyo/A1311/A131101/13003554/","上野公園內明治8年創業百年古宅，絕品豆乳鍋、鳥壽喜燒與懷石料理"],
+      ["new_31","ueno","伊豆栄 梅川亭 (上野公園)","鰻魚",3.71,"￥3,000～￥3,999",3000,3999,"￥5,000～￥5,999",5000,5999,35.7148,139.7728,"tokyo/A1311/A131101/13003556/","上野公園綠意包圍，江戶時代創業260年蒲燒鰻魚重名店"],
+      ["new_32","ueno","天ぷら 天寿々 (上野御徒町)","天婦羅",3.64,"￥1,000～￥1,999",1500,1999,"￥5,000～￥5,999",5000,5999,35.7088,139.7741,"tokyo/A1311/A131101/13185012/","上野阿美橫丁旁胡麻油現炸酥脆天婦羅與天丼"],
+      ["new_33","roppongi","瀬里奈 本店 (Serina 六本木)","壽喜燒/鍋物",3.66,"￥5,000～￥5,999",5000,5999,"￥15,000～￥19,999",15000,19999,35.6622,139.7332,"tokyo/A1307/A130701/13001233/","六本木站步行3分，老字號頂級神戸牛涮涮鍋、壽喜燒與松葉蟹鍋"],
+      ["new_34","roppongi","魚輝 (Uoteru 六本木)","海鮮丼 / 海鮮刺身",3.62,"￥1,000～￥1,999",1500,1999,"￥6,000～￥7,999",6000,7999,35.6638,139.7319,"tokyo/A1307/A130701/13191012/","六本木超人氣海膽鮭魚卵土鍋飯與極上生魚片刺身定食"],
+      ["new_35","roppongi","牛たん けやき 六本木店","牛舌",3.49,"￥1,000～￥1,999",1600,1999,"￥2,000～￥2,999",2000,2999,35.6632,139.7324,"tokyo/A1307/A130701/13270512/","六本木十字路口旁，特選厚切熟成牛舌定食專賣店"],
+      ["new_36","roppongi","焼鳥 燃 (Moeru 六本木)","燒鳥串燒",3.68,"-",null,null,"￥6,000～￥7,999",6000,7999,35.6626,139.7308,"tokyo/A1307/A130701/13001925/","六本木巷弄超人氣炭火燒鳥百名店"],
+      ["new_37","shinjuku","新宿焼肉 牛たんの檸檬","牛舌",3.68,"￥2,000～￥2,999",2000,2999,"￥4,000～￥4,999",4000,4999,35.6948,139.6982,"tokyo/A1304/A130401/13225910/","新宿西口爆紅『極味厚切牛舌』名店，外脆內嫩炭火直烤"],
+      ["new_38","shinjuku","タカマル鮮魚店 新宿西口本館","海鮮丼 / 海鮮刺身",3.59,"￥1,000～￥1,999",1200,1999,"￥3,000～￥3,999",3000,3999,35.6952,139.6978,"tokyo/A1304/A130401/13100512/","鮮魚店直營！超豪邁巨無霸厚切生魚片刺身盛合與海鮮丼"],
+      ["new_39","shinjuku","人形町今半 新宿高島屋店","壽喜燒/鍋物",3.71,"￥4,000～￥4,999",4000,4999,"￥10,000～￥14,999",10000,14999,35.6878,139.7022,"tokyo/A1304/A130401/13004260/","新宿南口高島屋14樓，入口即化黑毛和牛壽喜燒名店"],
+      ["new_40","shinjuku","天ぷら 新宿つな八 総本店","天婦羅",3.69,"￥2,000～￥2,999",2000,2999,"￥5,000～￥5,999",5000,5999,35.6908,139.7031,"tokyo/A1304/A130401/13000816/","大正13年創業新宿天婦羅總本店，必吃胡麻油炸蛤蜊與大蝦天婦羅"],
+      ["new_41","shinjuku3","切麦や 甚六 新宿御苑店","蕎麥/烏龍",3.74,"￥1,000～￥1,999",1000,1500,"￥2,000～￥2,999",2000,2999,35.6889,139.7088,"tokyo/A1304/A130402/13182510/","新宿三丁目/新宿御苑旁，米其林必比登推介手打讚岐烏龍麵百名店"],
+      ["new_42","shinjuku3","三是寿司 新宿三丁目","海鮮丼 / 海鮮刺身 / 壽司",3.54,"￥1,000～￥1,999",1200,1999,"￥3,000～￥3,999",3000,3999,35.6892,139.7038,"tokyo/A1304/A130401/13006812/","新宿三丁目超人氣名物『みこちゃん丼』爆量海鮮丼"],
+      ["new_43","shinjuku3","牛たん 荒 新宿店","牛舌",3.55,"￥2,000～￥2,999",2000,2999,"￥3,000～￥3,999",3000,3999,35.6915,139.7032,"tokyo/A1304/A130401/13038512/","新宿三丁目B2出口步行1分，仙台式炭火厚切牛舌定食"],
+      ["new_44","shibuya","まぐろとシャリ 渋谷本店","海鮮丼 / 海鮮刺身",3.64,"￥1,000～￥1,999",1500,1999,"￥1,000～￥1,999",1500,1999,35.6602,139.7035,"tokyo/A1303/A130301/13264512/","澀谷宮益坂人氣店，銀座米其林壽司監修極上紅醋飯鮪魚海鮮丼"],
+      ["new_45","shibuya","山下本気うどん 渋谷道玄坂店","蕎麥/烏龍",3.56,"￥1,000～￥1,999",1100,1600,"￥1,000～￥1,999",1100,1600,35.6588,139.6982,"tokyo/A1303/A130301/13260512/","澀谷道玄坂24小時營業，招牌白色明太子鮮奶油讚岐烏龍麵"],
+      ["new_46","shibuya","牛たん炭焼 利久 渋谷ヒカリエ店","牛舌",3.51,"￥2,000～￥2,999",2000,2999,"￥2,000～￥2,999",2000,2999,35.6591,139.7038,"tokyo/A1303/A130301/13140125/","澀谷Hikarie 6樓直結，炭火厚切仙台牛舌定食"],
+      ["new_47","shibuya","あさり (Asari 渋谷鉢山町)","壽喜燒/鍋物",3.65,"-",null,null,"￥6,000～￥7,999",6000,7999,35.6528,139.6985,"tokyo/A1303/A130301/13001812/","澀谷隱密古民家風黑毛和牛壽喜燒與涮涮鍋名店"],
+      ["new_48","odaiba","築地玉寿司 デックス東京ビーチ店","海鮮丼 / 海鮮刺身 / 壽司",3.48,"￥1,000～￥1,999",1500,1999,"￥3,000～￥3,999",3000,3999,35.6295,139.7745,"tokyo/A1313/A131306/13019512/","台場DECKS 5樓眺望彩虹大橋，豐洲直送海鮮丼與生魚片刺身"],
+      ["new_49","odaiba","金子半之助 ダイバーシティ東京プラザ店","天婦羅",3.54,"￥1,000～￥1,999",1200,1999,"￥1,000～￥1,999",1200,1999,35.6252,139.7755,"tokyo/A1313/A131306/13139812/","台場獨角獸鋼彈旁DiverCity內，超澎湃穴子魚江戶前天丼"],
+      ["new_50","odaiba","牛たん炭焼 利久 アクアシティお台場店","牛舌",3.45,"￥2,000～￥2,999",2000,2999,"￥2,000～￥2,999",2000,2999,35.6285,139.7712,"tokyo/A1313/A131306/13215018/","台場AQUA CiTY 5樓，海景相伴的仙台厚切炭烤牛舌"],
+      ["new_51","komagome","小松庵 総本家 駒込本店","蕎麥/烏龍",3.62,"￥1,000～￥1,999",1300,1999,"￥2,000～￥2,999",2000,2999,35.7342,139.7465,"tokyo/A1323/A132301/13008912/","六義園正門對面，大正11年創業老字號生粉手打蕎麥麵與天婦羅"],
+      ["new_52","komagome","とんかつ とんき 駒込店","炸豬排",3.68,"-",null,null,"￥2,000～￥2,999",2000,2999,35.7369,139.7478,"tokyo/A1323/A132301/13008925/","駒込站東口步行2分，傳統薄衣香酥炸里肌豬排老舖"],
+      ["new_53","haneda","つるとんたん 羽田空港店","蕎麥/烏龍",3.64,"￥1,000～￥1,999",1500,1999,"￥1,000～￥1,999",1500,1999,35.5451,139.7681,"tokyo/A1315/A131504/13117990/","羽田第3航廈4樓江戶小路，出境前必吃超大碗明太子烏龍麵"],
+      ["new_54","haneda","牛たん炭焼 利久 羽田空港第2ターミナル店","牛舌",3.48,"￥2,000～￥2,999",2000,2999,"￥2,000～￥2,999",2000,2999,35.5508,139.7882,"tokyo/A1315/A131504/13235012/","羽田機場第2航廈，搭機前享用現烤仙台厚切牛舌定食"],
+      ["new_55","haneda","とんかつ和幸 羽田空港第3ターミナル店","炸豬排",3.46,"￥1,000～￥1,999",1400,1999,"￥1,000～￥1,999",1400,1999,35.5449,139.7684,"tokyo/A1315/A131504/13118012/","羽田第3航廈4樓，高麗菜與白飯免費續的酥脆炸豬排定食"],
+      ["new_56","noborito","寿司・海鮮 築地すしくろ 登戸店","海鮮丼 / 海鮮刺身 / 壽司",3.46,"￥1,000～￥1,999",1200,1999,"￥3,000～￥3,999",3000,3999,35.6209,139.5699,"kanagawa/A1405/A140506/14065012/","登戶站步行1分，豐洲市場直送午間特上海鮮丼與握壽司"],
+      ["new_57","mukogaoka","とんかつ 大吉 (向丘遊園)","炸豬排",3.52,"￥1,000～￥1,999",1100,1800,"￥1,000～￥1,999",1200,1999,35.6175,139.5655,"kanagawa/A1405/A140506/14012015/","向丘遊園站步行3分，藤子不二雄博物館散步順吃厚切炸豬排老店"]
+    ];
+
+    // 自動展開為標準完整物件結構
+    const DEFAULT_RESTAURANTS = RAW_RESTAURANTS.map(r => ({
+      id: r[0],
+      station: r[1],
+      station_name: STATIONS[r[1]] ? STATIONS[r[1]].name : "東京駅",
+      name: r[2],
+      category: r[3],
+      rating: r[4],
+      lunch_text: r[5],
+      lunch_min: r[6],
+      lunch_max: r[7],
+      dinner_text: r[8],
+      dinner_min: r[9],
+      dinner_max: r[10],
+      lat: r[11],
+      lng: r[12],
+      url: r[13].startsWith("http") ? r[13] : "https://tabelog.com/" + r[13],
+      note: r[14]
+    }));
+
+    const STORAGE_KEY = "boy_tabelog_restaurants_v7";
     let restaurantsData = [];
     let currentStation = "all";
+    let currentCategory = "all";
     let currentMealPeriod = "any";
     let map, markersLayer, stationCircleLayer;
     let markerMap = {};
 
     function toggleMenu() {
-      const menu = document.getElementById("dropdown-menu");
-      menu.classList.toggle("hidden");
+      document.getElementById("dropdown-menu").classList.toggle("hidden");
     }
 
     function toggleLegend() {
-      const card = document.getElementById("legend-card");
-      card.classList.toggle("hidden");
+      document.getElementById("legend-card").classList.toggle("hidden");
     }
 
-    // 自動搜尋並還原舊暫存中的 192 筆完整資料庫
+    // 智慧合併載入：確保 250 間預設餐廳 100% 存在，同時保留使用者曾自訂新增的餐廳，並自動修正舊版錯誤代碼與座標
     function loadStoredData() {
+      const mergedMap = new Map();
+      // 先載入完整 250 間預設餐廳
+      DEFAULT_RESTAURANTS.forEach(item => {
+        mergedMap.set(item.id, JSON.parse(JSON.stringify(item)));
+      });
+
       try {
         const candidateKeys = [
+          STORAGE_KEY,
           "boy_tabelog_restaurants_v6",
+          "boy_tabelog_restaurants_v5",
           "boy_tabelog_restaurants_v4",
-          "boy_tabelog_restaurants_v3",
-          "tabelog_custom_restaurants_v2",
-          "boy_tabelog_restaurants_v5"
+          "boy_tabelog_restaurants_v3"
         ];
-        
-        let bestList = null;
-        let maxLen = 0;
-
         for (const k of candidateKeys) {
           const raw = localStorage.getItem(k);
           if (raw) {
             try {
               const arr = JSON.parse(raw);
-              if (Array.isArray(arr) && arr.length > maxLen) {
-                maxLen = arr.length;
-                bestList = arr;
+              if (Array.isArray(arr)) {
+                arr.forEach(item => {
+                  if (!item || !item.id) return;
+                  // 修正舊版 shinjuku_sanchome 代碼
+                  if (item.station === "shinjuku_sanchome") {
+                    item.station = "shinjuku3";
+                    item.station_name = "新宿三丁目駅";
+                  }
+                  // 修正舊版 (0,0) 座標
+                  if (!item.lat || !item.lng || item.lat === 0 || item.lng === 0) {
+                    const st = STATIONS[item.station] || STATIONS.tokyo;
+                    item.lat = st.lat + 0.001;
+                    item.lng = st.lng + 0.001;
+                  }
+                  // 若為使用者自訂新增的餐廳（不在預設 250 間內），且名稱未重複，則保留合併
+                  if (!mergedMap.has(item.id)) {
+                    const isDupName = Array.from(mergedMap.values()).some(
+                      existing => existing.name === item.name && existing.station === item.station
+                    );
+                    if (!isDupName) {
+                      mergedMap.set(item.id, item);
+                    }
+                  }
+                });
               }
             } catch (err) {}
           }
         }
-
-        if (bestList && bestList.length >= DEFAULT_RESTAURANTS.length) {
-          restaurantsData = bestList;
-          // 自動確保 29 Terrace 寫入資料庫中
-          if (!restaurantsData.some(r => r.name.includes("29 Terrace") || r.id === "sj_29terrace")) {
-            restaurantsData.unshift({
-              id: "sj_29terrace",
-              station: "shinjuku",
-              station_name: "新宿駅",
-              name: "29 Terrace (29テラス)",
-              category: "和牛燒肉 / 蔥包牛舌",
-              rating: 3.56,
-              lunch_text: "-",
-              lunch_min: null,
-              lunch_max: null,
-              dinner_text: "￥6,000～￥7,999",
-              dinner_min: 6000,
-              dinner_max: 7999,
-              lat: 35.68343,
-              lng: 139.70129,
-              url: "https://tabelog.com/tokyo/A1304/A130401/13263152/",
-              note: "新宿南口/代代木旁超人氣厚切蔥包牛舌、A5黑毛和牛燒肉"
-            });
-          }
-          saveToStorage();
-          return;
-        }
       } catch (e) { console.warn(e); }
 
-      restaurantsData = JSON.parse(JSON.stringify(DEFAULT_RESTAURANTS));
+      restaurantsData = Array.from(mergedMap.values());
       saveToStorage();
     }
 
@@ -3846,6 +676,15 @@
         localStorage.setItem(STORAGE_KEY, JSON.stringify(restaurantsData));
       } catch (e) { console.warn(e); }
       updateStationCounts();
+      buildCategoryButtons();
+    }
+
+    function matchCategory(item, catKey) {
+      if (catKey === "all") return true;
+      const catObj = CATEGORIES.find(c => c.key === catKey);
+      if (!catObj) return true;
+      const hay = `${item.category || ""} ${item.name || ""} ${item.note || ""}`;
+      return catObj.keywords.some(kw => hay.includes(kw));
     }
 
     function buildStationButtons() {
@@ -3853,7 +692,7 @@
       const fStation = document.getElementById("f-station");
       fStation.innerHTML = "";
 
-      let html = `<button onclick="selectStation('all')" data-station="all" class="station-btn bg-amber-500 text-slate-950 font-bold px-3 py-1 rounded-full text-xs shrink-0 transition">全部車站 (${restaurantsData.length})</button>`;
+      let html = `<button onclick="selectStation('all')" data-station="all" class="station-btn bg-amber-500 text-slate-950 font-bold px-3 py-1 rounded-full text-xs shrink-0 transition shadow">全部車站 (${restaurantsData.length})</button>`;
 
       Object.keys(STATIONS).forEach(k => {
         const st = STATIONS[k];
@@ -3869,6 +708,29 @@
       container.innerHTML = html;
     }
 
+    function buildCategoryButtons() {
+      const container = document.getElementById("category-buttons");
+      if (!container) return;
+      const stationPool = restaurantsData.filter(r => currentStation === "all" || r.station === currentStation);
+
+      container.innerHTML = CATEGORIES.map(c => {
+        const cnt = stationPool.filter(r => matchCategory(r, c.key)).length;
+        const isActive = currentCategory === c.key;
+        const cls = isActive
+          ? "bg-emerald-400 text-slate-950 font-bold shadow"
+          : (cnt > 0 ? "bg-slate-700 hover:bg-slate-600 text-slate-100" : "bg-slate-800/60 text-slate-500");
+        return `<button onclick="selectCategory('${c.key}')" data-cat="${c.key}" class="cat-btn ${cls} px-3 py-1 rounded-full text-xs shrink-0 transition">${c.label} (${cnt})</button>`;
+      }).join("");
+    }
+
+    function buildQuickCategoryTags() {
+      const box = document.getElementById("quick-category-tags");
+      if (!box) return;
+      box.innerHTML = CATEGORIES.filter(c => c.tag).map(c =>
+        `<button type="button" onclick="document.getElementById('f-category').value='${c.tag}'" class="px-2 py-0.5 bg-white hover:bg-amber-50 border border-slate-300 hover:border-amber-400 rounded text-[11px] text-slate-700 font-medium transition">${c.label}</button>`
+      ).join("");
+    }
+
     function updateStationCounts() {
       document.querySelectorAll(".station-btn").forEach(btn => {
         const st = btn.dataset.station;
@@ -3879,6 +741,12 @@
           btn.textContent = `📍 ${STATIONS[st].name} (${cnt})`;
         }
       });
+    }
+
+    function selectCategory(catKey) {
+      currentCategory = catKey;
+      buildCategoryButtons();
+      applyFilters();
     }
 
     function parsePriceString(priceText) {
@@ -3900,6 +768,8 @@
     function initMap() {
       loadStoredData();
       buildStationButtons();
+      buildCategoryButtons();
+      buildQuickCategoryTags();
 
       map = L.map("map").setView([35.681, 139.755], 12);
       L.tileLayer("https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=zh-TW", {
@@ -3951,6 +821,7 @@
         map.flyTo([st.lat, st.lng], st.zoom, { duration: 0.6 });
       }
       drawStationCircles();
+      buildCategoryButtons();
       applyFilters();
     }
 
@@ -3968,12 +839,14 @@
     }
 
     function resetFilters() {
+      currentCategory = "all";
       document.getElementById("tier-3").checked = true;
       document.getElementById("tier-4").checked = true;
       document.getElementById("sub-rating-filter").value = "0";
       document.getElementById("min-price").value = "0";
       document.getElementById("max-price").value = "999999";
       document.getElementById("keyword-input").value = "";
+      buildCategoryButtons();
       setMealPeriod("any");
     }
 
@@ -3993,12 +866,13 @@
       const sortMode = document.getElementById("sort-select").value;
 
       const stationPool = restaurantsData.filter(r => currentStation === "all" || r.station === currentStation);
-      const t3Count = stationPool.filter(r => r.rating >= 3.0 && r.rating < 4.0).length;
-      const t4Count = stationPool.filter(r => r.rating >= 4.0).length;
-      document.getElementById("count-tier3").textContent = `該站共 ${t3Count} 間 (日常/百名店)`;
-      document.getElementById("count-tier4").textContent = `該站共 ${t4Count} 間 (傳奇神店)`;
+      const catPool = stationPool.filter(r => matchCategory(r, currentCategory));
+      const t3Count = catPool.filter(r => r.rating >= 3.0 && r.rating < 4.0).length;
+      const t4Count = catPool.filter(r => r.rating >= 4.0).length;
+      document.getElementById("count-tier3").textContent = `符合共 ${t3Count} 間 (日常/百名店)`;
+      document.getElementById("count-tier4").textContent = `符合共 ${t4Count} 間 (傳奇神店)`;
 
-      let filtered = stationPool.filter(item => {
+      let filtered = catPool.filter(item => {
         const isTier3 = item.rating >= 3.0 && item.rating < 4.0;
         const isTier4 = item.rating >= 4.0 && item.rating <= 5.0;
         if (isTier3 && !includeTier3) return false;
@@ -4039,7 +913,8 @@
       });
 
       const stLabel = currentStation === "all" ? "全部車站" : STATIONS[currentStation].name;
-      document.getElementById("status-text").textContent = `目前顯示：${stLabel}（篩選後 ${filtered.length} / ${stationPool.length} 間）`;
+      const catLabel = currentCategory === "all" ? "" : `・${CATEGORIES.find(c => c.key === currentCategory)?.tag || ""}`;
+      document.getElementById("status-text").textContent = `目前顯示：${stLabel}${catLabel}（篩選後 ${filtered.length} / ${stationPool.length} 間）`;
       document.getElementById("result-count").textContent = `符合 ${filtered.length} 間`;
 
       renderMapMarkers(filtered);
@@ -4072,8 +947,8 @@
               <div>🌙 晚餐：<strong class="text-slate-800">${item.dinner_text || "-"}</strong></div>
             </div>
             <div class="grid grid-cols-2 gap-1.5 text-center text-xs font-bold">
-            <a href="${item.url}" target="_blank" rel="noopener" style="color: #ffffff !important;" class="bg-amber-500 hover:bg-amber-600 !text-white py-1.5 px-2 rounded">Tabelog 原頁</a>
-            <a href="${gmapUrl}" target="_blank" rel="noopener" style="color: #ffffff !important;" class="bg-blue-600 hover:bg-blue-700 !text-white py-1.5 px-2 rounded">Google 導航</a>
+              <a href="${item.url}" target="_blank" rel="noopener" style="color:#ffffff !important;" class="popup-btn bg-amber-500 hover:bg-amber-600 !text-white text-white py-1.5 px-2 rounded">Tabelog 原頁</a>
+              <a href="${gmapUrl}" target="_blank" rel="noopener" style="color:#ffffff !important;" class="popup-btn bg-blue-600 hover:bg-blue-700 !text-white text-white py-1.5 px-2 rounded">Google 導航</a>
             </div>
           </div>
         `;
@@ -4090,7 +965,7 @@
           <div class="text-center py-12 px-4 bg-white rounded-xl border border-slate-200">
             <div class="text-3xl mb-2">🍽️</div>
             <div class="text-sm font-bold text-slate-700">此篩選條件下沒有符合的餐廳</div>
-            <p class="text-xs text-slate-500 mt-1">請點選「重設條件」或放寬星等與金額。</p>
+            <p class="text-xs text-slate-500 mt-1">請點選「重設所有條件」或切換其他料理分類與車站。</p>
           </div>
         `;
         return;
@@ -4231,7 +1106,7 @@
         return;
       }
 
-      if (isNaN(lat) || isNaN(lng)) {
+      if (isNaN(lat) || isNaN(lng) || lat === 0 || lng === 0) {
         lat = stObj.lat + (Math.random() - 0.5) * 0.003;
         lng = stObj.lng + (Math.random() - 0.5) * 0.003;
       }
@@ -4257,21 +1132,23 @@
     }
 
     function restoreDefaultData() {
-      if (!confirm("確定要重設為預設資料庫嗎？")) return;
+      if (!confirm("確定要重設為預設資料庫（完整 250 間）嗎？")) return;
       localStorage.removeItem(STORAGE_KEY);
       restaurantsData = JSON.parse(JSON.stringify(DEFAULT_RESTAURANTS));
+      currentCategory = "all";
       saveToStorage();
       buildStationButtons();
+      buildCategoryButtons();
       selectStation("all");
       applyFilters();
-      alert("✅ 已恢復預設資料庫！");
+      alert("✅ 已恢復 250 間完整預設資料庫！");
     }
 
     function exportJson() {
       const blob = new Blob([JSON.stringify(restaurantsData, null, 2)], { type: "application/json" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = "boy_tabelog_all_stations.json";
+      a.download = "boy_tabelog_250_restaurants.json";
       a.click();
     }
 
@@ -4284,19 +1161,21 @@
           const imported = JSON.parse(e.target.result);
           if (Array.isArray(imported) && imported.length > 0) {
             const mapByName = new Map();
-            restaurantsData.forEach(r => mapByName.set(r.name, r));
+            restaurantsData.forEach(r => mapByName.set(r.name + "_" + r.station, r));
 
             imported.forEach((r, idx) => {
-              if (!r.station) r.station = "tokyo";
-              if (!r.station_name) r.station_name = "東京駅";
+              if (r.station === "shinjuku_sanchome") r.station = "shinjuku3";
+              if (!r.station || !STATIONS[r.station]) r.station = "tokyo";
+              r.station_name = STATIONS[r.station].name;
               if (!r.id) r.id = "imp_" + idx + "_" + Date.now();
-              mapByName.set(r.name, r);
+              mapByName.set(r.name + "_" + r.station, r);
             });
 
             restaurantsData = Array.from(mapByName.values());
             saveToStorage();
             buildStationButtons();
-            selectStation("tokyo");
+            buildCategoryButtons();
+            applyFilters();
             alert(`🎉 成功智慧合併！目前全站共有 ${restaurantsData.length} 間餐廳！`);
           }
         } catch (err) {
@@ -4308,5 +1187,5 @@
 
     window.addEventListener("DOMContentLoaded", initMap);
   </script>
-
-</body></html>
+</body>
+</html>
